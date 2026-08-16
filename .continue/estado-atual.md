@@ -1,5 +1,18 @@
 # Estado atual — SHVIA-BENCH
 
+> **Conferido em 16/08/2026 — NÃO há drift, apesar da data.** O arquivo é de 23/07 e
+> o repo está em 0.8.1 (30/07), o que costuma ser sinal de doc apodrecendo. Medido:
+> os três commits desse intervalo são `.claude/settings.json` (25/07), `.committer.yml`
+> (29/07) e o bloco PS do COMMITTER em `AGENTS.md`/`CLAUDE.md` (30/07) — rollout de
+> ferramenta de agente, **zero mudança em código ou `docs/`**. A última alteração de
+> produto é a 0.8.0 (22/07), que este arquivo cobre por extenso na seção "Verdade de
+> custo". A pendência do fim — campanha real, que precisa de `.secrets/<vendor>` —
+> segue valendo.
+>
+> Fica registrado porque "arquivo velho" e "arquivo errado" não são a mesma coisa, e
+> confundir os dois custa uma sessão relendo 29 kB atrás de podridão que não existe.
+
+
 ## Contexto (por que este repo existe)
 
 Há **três camadas distintas** num benchmark de modelos de código; este repo é uma

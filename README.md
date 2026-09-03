@@ -5,7 +5,8 @@
 🇧🇷 [Versão em português](README_br.md)
 
 **A reproducible, contamination-controlled harness for benchmarking LLMs on
-software-engineering tasks.** Spec: [`docs/ambiente-isolado.md`](docs/ambiente-isolado.md) (v0.2).
+software-engineering tasks.** Spec: [`docs/ambiente-isolado.md`](docs/ambiente-isolado.md) (v0.2);
+operator runbook: [`docs/rodar.md`](docs/rodar.md).
 
 SHVIA-BENCH is **not** a scoring rubric and **not** a task suite. It is the layer
 underneath both: the sterile environment and the instrumentation that let you

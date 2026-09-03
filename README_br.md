@@ -5,7 +5,8 @@
 🇺🇸 [English version](README.md)
 
 **Um harness reprodutível e com controle de contaminação para avaliar LLMs em
-tarefas de engenharia de software.** Spec: [`docs/ambiente-isolado.md`](docs/ambiente-isolado.md) (v0.2).
+tarefas de engenharia de software.** Spec: [`docs/ambiente-isolado.md`](docs/ambiente-isolado.md) (v0.2);
+runbook do operador: [`docs/rodar.md`](docs/rodar.md).
 
 O SHVIA-BENCH **não** é rubrica de pontuação nem suíte de tarefas. É a camada
 debaixo das duas: o ambiente estéril e a instrumentação que permitem comparar

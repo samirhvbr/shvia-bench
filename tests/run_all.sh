@@ -25,12 +25,46 @@ TAXONOMY_MIN_CHECKS=60
 FAILED=0
 SKIPPED=0
 
-# macOS não traz `timeout(1)`; perl+alarm é o equivalente portátil.
-watchdog() { perl -e 'alarm shift; exec @ARGV' "$WATCHDOG_S" "$@"; }
+# Watchdog portátil: `timeout(1)` quando existe (GNU coreutils, Linux), `perl`+alarm
+# como reserva (o macOS não traz `timeout`).
+#
+# O script nasceu escrito e validado SÓ no macOS, e era o `perl` que estava fixo. Ele
+# funciona nos dois lados, então a troca não é conserto de defeito — é preferir a
+# ferramenta certa onde ela existe e parar de exigir `perl` num contêiner de CI enxuto.
+#
+# ⚠️ Os dois sinalizam estouro com códigos DIFERENTES: `timeout` sai **124**, o
+# `perl`+SIGALRM sai **142**. O relatório abaixo aceita os dois — testar só um faria o
+# "TRAVOU" desaparecer justamente na plataforma que não foi usada para escrever isto.
+if command -v timeout >/dev/null 2>&1; then
+  watchdog() { timeout "$WATCHDOG_S" "$@"; }
+  WATCHDOG_RC_ESTOURO=124
+elif command -v perl >/dev/null 2>&1; then
+  watchdog() { perl -e 'alarm shift; exec @ARGV' "$WATCHDOG_S" "$@"; }
+  WATCHDOG_RC_ESTOURO=142
+else
+  echo "run_all: sem \`timeout\` nem \`perl\` — não há watchdog, e suíte que pendura" >&2
+  echo "         é pior que suíte vermelha. Instale coreutils ou perl." >&2
+  exit 1
+fi
 
 run() {
   local out rc
-  out="$(mktemp -t sb-test)"   # não /tmp/<previsível>: dir world-writable
+  # 🔴 `-t` EXIGE `XXXXXX` no GNU mktemp; sem eles ele recusa (achado G-40).
+  #
+  # O template era `sb-test`, sem X nenhum. No macOS passa; no Linux o mktemp sai com
+  # erro, `$out` fica VAZIO, e daí em diante todo `> "$out"` e `cat "$out"` falha — as
+  # 8 suítes eram reportadas como FALHOU sem nunca terem rodado. Medido em 02/09 antes
+  # do conserto: `8 suíte(s) FALHARAM` e `COBERTURA ABAIXO DO PISO: ? < 60`, com as
+  # suítes passando quando chamadas à mão.
+  #
+  # E o `|| morrer` é a metade que faltava: num repo de MEDIÇÃO, uma falha de
+  # infraestrutura do próprio runner não pode se disfarçar de suíte vermelha. Ou o
+  # arquivo temporário existe, ou o script para dizendo por quê.
+  out="$(mktemp -t sb-test.XXXXXX)" || {
+    echo "run_all: mktemp falhou — não consigo capturar a saída das suítes." >&2
+    echo "         Sem isso, TUDO seria reportado como falha sem ter rodado." >&2
+    exit 1
+  }
   echo "── $* ─────────────────────────────────────────"
   if watchdog "$@" > "$out" 2>&1; then
     rc=0
@@ -45,7 +79,7 @@ run() {
     fi
   else
     cat "$out"
-    [ "$rc" -eq 142 ] && echo "   ^^ TRAVOU (watchdog ${WATCHDOG_S}s)"
+    [ "$rc" -eq "$WATCHDOG_RC_ESTOURO" ] && echo "   ^^ TRAVOU (watchdog ${WATCHDOG_S}s)"
     echo "   ^^ FALHOU: $*"
     FAILED=$((FAILED + 1))
   fi
@@ -68,6 +102,7 @@ run python3 tests/test_status_taxonomy_offline.py  # taxonomia + reparo + guards
 run python3 tests/test_cost_truth_offline.py       # precedência C3→C2-dedup→C1 (§10.1)
 run python3 tests/test_leb_offline.py              # adapter LEB (SKIP sem LEB_ROOT)
 run bash    runner/canary.sh --selftest            # A5 offline (fixtures)
+run bash    tests/test_docs_alcancaveis.sh        # D-DOC-10: nenhum doc órfão
 
 echo
 if [ "$FAILED" -eq 0 ] && [ "$SKIPPED" -eq 0 ]; then

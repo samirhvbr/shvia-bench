@@ -9,6 +9,18 @@ Invariantes que **não se relitiga**: [../CLAUDE.md](../CLAUDE.md).
 ./preflight.sh          # checa python3 (stdlib), git, openssl, docker, claude, nc
 bash tests/run_all.sh   # suíte offline inteira (sem rede, sem chave, sem docker)
 ```
+
+> **Roda no Linux desde a 0.8.4** (achado G-40 da revisão de 01/09/2026). O script foi
+> escrito e validado só no macOS, e o `mktemp -t sb-test` sem `XXXXXX` — que o BSD aceita
+> e o GNU recusa — deixava `$out` vazio: as **8 suítes eram reportadas como FALHOU sem
+> nunca terem rodado**, e o piso de cobertura acusava `? < 60`. Chamadas à mão, todas
+> passavam. Num repo de medição, esse é o pior tipo de defeito: o comando que a doc chama
+> de "a suíte inteira num comando" mentindo para o lado ruim.
+>
+> Além do template, duas coisas mudaram: falha do `mktemp` agora **para o script** com a
+> causa nomeada, em vez de virar oito suítes vermelhas; e o watchdog usa `timeout(1)`
+> quando existe, com `perl`+alarm de reserva (os dois estouram com códigos diferentes —
+> 124 e 142 —, e o relatório aceita ambos).
 - **Trilha A** (modelo puro / API): só precisa da chave do vendor.
 - **Trilha B** (modelo + harness): precisa do harness (ex.: `claude`) e, pro LEB,
   do **Docker** (mysql8+php8.4) e do repo LEB ao lado (`~/x/AI-BENCHMARK`).

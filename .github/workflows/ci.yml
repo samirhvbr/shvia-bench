@@ -1,0 +1,40 @@
+# CI do SHVIA-BENCH — achado G-24 da revisão de 01/09/2026.
+#
+# ## Por que este repo precisa MAIS que os outros
+#
+# Aqui se MEDE. O CLAUDE.md diz que "verde precisa significar N checks rodaram", e a suíte
+# tem piso de cobertura justamente para que apagar checks conte como falha.
+#
+# O achado G-40 mostrou o que acontece sem CI: o `tests/run_all.sh` foi escrito e validado
+# só no macOS e **não rodava no Linux** — `mktemp -t sb-test` sem `XXXXXX`, que o BSD aceita
+# e o GNU recusa. As 8 suítes eram reportadas como FALHOU **sem nunca terem rodado**, e o
+# piso acusava `? < 60`. Chamadas à mão, todas passavam.
+#
+# É o pior defeito possível num repo de medição, e a única coisa que o teria pego é
+# exatamente isto: alguém rodando a suíte no Linux, sempre.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    name: Suíte offline (sem rede, sem chave, sem docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # `run_all.sh` já falha sozinho quando alguma suíte é PULADA por dependência
+      # ausente — no CI isso é o que separa "verde" de "verde por omissão".
+      - name: tests/run_all.sh
+        run: bash tests/run_all.sh

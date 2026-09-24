@@ -900,6 +900,8 @@ Em `runner/audit.sh`, automatizado e **bloqueante**.
 - [ ] **C5** — Score público vs. privado reportado separadamente
 - [ ] **C6** — Métricas ausentes gravadas como `null`, nunca como `0`
 - [ ] **C7** — `manifest.json` + `results.jsonl` + `proxy.jsonl` + `transcripts/` + `audit.json` arquivados juntos e imutáveis
+  → Since 0.8.17: `results/<run_id>/` in this repository, **without** `transcripts/` (the repo is
+  public and a transcript carries the solutions). See [results/README.md](../results/README.md).
 
 ---
 

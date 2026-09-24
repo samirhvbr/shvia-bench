@@ -44,8 +44,13 @@ jobs:
       # private/matrix/probe" e "prompt NÃO vaza a matriz-gabarito". É a única prova automática
       # de que o modelo não recebe o gabarito, e ela não roda neste job.
       #
-      # 🔒 Ligar `BENCH_SKIP_MAX: "0"` abaixo deixa este job VERMELHO até o AI-BENCHMARK estar
-      # disponível no CI (deploy key ou clone autenticado). Essa é decisão do dono, e está na
-      # mesa dele — por isso o teto não vem ligado.
+      # ✅ The owner's decision on 24/09/2026 (panel card `bench-ci-suite-pulada`, option b):
+      # zero tolerance. `BENCH_SKIP_MAX: "0"` fails this job whenever a suite is skipped, so it
+      # stays RED until the AI-BENCHMARK is reachable from CI (option a, a deploy key, was not
+      # chosen). Red here means "the anti-leak checks did not run", which is true, instead of a
+      # green that claimed they had. Do not raise the ceiling to make the job green: that is
+      # the lie this line exists to stop.
       - name: tests/run_all.sh
+        env:
+          BENCH_SKIP_MAX: "0"
         run: bash tests/run_all.sh

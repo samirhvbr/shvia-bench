@@ -52,6 +52,16 @@ igual — só trocar `--model` pro alias do vendor. **Sampling**: o `track_a` s�
 `temperature/top_p` se o gateway E o modelo permitirem (Anthropic 4.6+ e raciocínio
 = 400 se mandar).
 
+**Spend ceiling (since 0.8.16).** `--max-spend-usd` caps the whole invocation (all reps);
+the default is **US$2.00**, the same as Track B's per-case budget. Before each rep the driver
+adds the real cost spent so far to the worst case of the next rep (prompt ≈ chars/4 plus the full
+`max_tokens` of output) and stops before calling if it would go over; a cut invocation exits 1.
+A model with no `price_per_mtok` in `config/models.json` is **refused**: without a price there is
+no ceiling to enforce, and its cost would be recorded as `null`. To run one anyway, pass
+`--max-spend-usd 0` (no ceiling, announced loudly on stderr). Pass the flag on the command line:
+`track_a` runs inside `run.sh`'s `env -i`, so the `BUDGET_TRACK_A_USD` variable only takes effect
+when `track_a.py` is called outside it.
+
 ## 3. Trilha B — modelo + harness, contra o LEB
 
 Um caso oficial (PROTOCOL §4: **3 reps, nota = mediana**), via o driver:

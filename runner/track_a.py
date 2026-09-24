@@ -260,6 +260,11 @@ def main():
     ap.add_argument("--out", default=None)
     ap.add_argument("--models", default=None)
     ap.add_argument("--gateways", default=None)
+    # Spend ceiling per invocation (all reps). Track B passes --max-budget-usd to the harness on
+    # every rep; Track A calls the API directly and had NO ceiling, and it is the track that takes
+    # 8 vendors with unknown prices. 0 = run without a ceiling (explicit, and announced loudly).
+    ap.add_argument("--max-spend-usd", type=float,
+                    default=float(os.environ.get("BUDGET_TRACK_A_USD", "2.0")))
     args = ap.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -282,12 +287,38 @@ def main():
     api_key = os.environ.get(gateway.get("key_env", ""), "")
     run_id = os.environ.get("SHVIA_RUN_ID", "adhoc")
 
+    teto = args.max_spend_usd
+    if teto < 0:
+        sys.exit("track_a: --max-spend-usd não pode ser negativo")
+    price = model_cfg.get("price_per_mtok") or {}
+    if teto == 0:
+        print("track_a: ⚠️  SEM TETO de gasto (--max-spend-usd 0) — nada limita o custo desta invocação.",
+              file=sys.stderr)
+    elif price.get("input") is None or price.get("output") is None:
+        # Without a price there is no ceiling to enforce: the cost would be null and the
+        # ceiling blind. Refuse instead of spending on an amount nobody can compute.
+        sys.exit(f"track_a: '{args.model}' não tem preço em config/models.json (price_per_mtok) — "
+                 f"sem preço não há teto. Preencha a tabela, ou rode consciente com --max-spend-usd 0.")
+    # Worst case for one rep: the prompt (chars/4, rough on purpose) plus the full output ceiling.
+    max_out = int(model_cfg.get("max_tokens") or 0)
+    pior_caso = (0.0 if teto == 0 else
+                 ((len(prompt) / 4) * price["input"] + max_out * price["output"]) / 1e6)
+    gasto = 0.0
+
     cases = []
     for rep in range(1, args.reps + 1):
+        if teto > 0 and gasto + pior_caso > teto:
+            print(f"track_a: TETO — rep{rep} não roda: gasto até aqui US${gasto:.4f} + pior caso da "
+                  f"próxima US${pior_caso:.4f} > teto US${teto:.2f}. (--max-spend-usd / BUDGET_TRACK_A_USD)",
+                  file=sys.stderr)
+            break
         ids = {"run_id": run_id, "task_id": args.task, "model_alias": args.model,
                "repetition": rep, "case_id": f"{args.task}/{args.model}/A/rep{rep}"}
         rec = run_case(model_cfg, gateway, prompt, api_key, base_url, ids)
         cases.append(rec)
+        custo = (rec.get("cost") or {}).get("cost_usd_computed")
+        # A rep whose real cost is unknown still spent money: count its worst case, never 0.
+        gasto += custo if custo is not None else pior_caso
         line = json.dumps(rec, ensure_ascii=False)
         if args.out:
             os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
@@ -303,6 +334,8 @@ def main():
 
     print("== agregado Trilha A ==", file=sys.stderr)
     print(json.dumps(aggregate(cases), ensure_ascii=False, indent=1), file=sys.stderr)
+    if len(cases) < args.reps:
+        return 1   # the ceiling cut reps: the invocation did not do what was asked
     return 0 if aggregate(cases).get("completed") == len(cases) else 1
 
 

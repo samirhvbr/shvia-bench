@@ -34,7 +34,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      # `run_all.sh` já falha sozinho quando alguma suíte é PULADA por dependência
-      # ausente — no CI isso é o que separa "verde" de "verde por omissão".
+      # ⚠️ Medido em 21/09/2026: este comentário AFIRMAVA que o `run_all.sh` falha sozinho
+      # quando uma suíte é PULADA. Ele não falhava — `exit "$FAILED"` ignorava o contador de
+      # pulos, e duas outras linhas do script diziam o mesmo sem nenhuma consequência. Três
+      # declarações, zero leitores.
+      #
+      # O que se perde aqui: `test_leb_offline.py` procura o AI-BENCHMARK (repo PRIVADO) e pula
+      # sem ele, levando junto os **7 checks anti-contaminação** — "golden NÃO contém
+      # private/matrix/probe" e "prompt NÃO vaza a matriz-gabarito". É a única prova automática
+      # de que o modelo não recebe o gabarito, e ela não roda neste job.
+      #
+      # 🔒 Ligar `BENCH_SKIP_MAX: "0"` abaixo deixa este job VERMELHO até o AI-BENCHMARK estar
+      # disponível no CI (deploy key ou clone autenticado). Essa é decisão do dono, e está na
+      # mesa dele — por isso o teto não vem ligado.
       - name: tests/run_all.sh
         run: bash tests/run_all.sh

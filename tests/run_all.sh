@@ -74,7 +74,7 @@ run() {
   if [ "$rc" -eq 0 ]; then
     tail -1 "$out"
     if grep -q "SKIP" "$out"; then
-      echo "   ^^ PULADA (dependência ausente) — não conta como verde"
+      echo "   ^^ PULADA (dependência ausente)"
       SKIPPED=$((SKIPPED + 1))
     fi
   else
@@ -104,6 +104,25 @@ run python3 tests/test_leb_offline.py              # adapter LEB (SKIP sem LEB_R
 run bash    runner/canary.sh --selftest            # A5 offline (fixtures)
 run bash    tests/test_docs_alcancaveis.sh        # D-DOC-10: nenhum doc órfão
 
+# ── O pulo passa a contar no DESFECHO, e não só na prosa ────────────────────
+#
+# 🔴 Medido em 21/09/2026: três lugares afirmavam que suíte pulada importa — o comentário do
+# `.github/workflows/ci.yml` (*"run_all.sh já falha sozinho quando alguma suíte é PULADA…
+# no CI isso é o que separa verde de verde por omissão"*), a linha `^^ PULADA … não conta
+# como verde`, e o resumo `cobertura incompleta`. E o `exit "$FAILED"` ignorava `SKIPPED`
+# inteiro. Três declarações, zero leitores.
+#
+# O que se perde no CI quando o `test_leb_offline.py` pula: **7 checks anti-contaminação** —
+# "golden NÃO contém private/matrix/probe" e "prompt NÃO vaza a matriz-gabarito". Ou seja, a
+# única prova automática de que o modelo não recebe o gabarito.
+#
+# ⚠️ `BENCH_SKIP_MAX` nasce em `-1` = comportamento de hoje, INALTERADO. Pô-lo em `0` deixaria
+# o CI vermelho no próximo push, porque lá o `~/x/AI-BENCHMARK` não existe — e essa escolha
+# (clonar o repo privado no CI, ou aceitar a cobertura menor e travá-la num teto) é do dono,
+# não minha. O que esta mudança faz é tornar a escolha POSSÍVEL com uma linha, em vez de
+# deixar três frases afirmando algo que o código não faz.
+SKIP_MAX="${BENCH_SKIP_MAX:--1}"
+
 echo
 if [ "$FAILED" -eq 0 ] && [ "$SKIPPED" -eq 0 ]; then
   echo "SUÍTE OFFLINE: TUDO VERDE"
@@ -112,4 +131,10 @@ elif [ "$FAILED" -eq 0 ]; then
 else
   echo "SUÍTE OFFLINE: $FAILED suíte(s) FALHARAM${SKIPPED:+ · $SKIPPED pulada(s)}"
 fi
+
+if [ "$SKIP_MAX" -ge 0 ] && [ "$SKIPPED" -gt "$SKIP_MAX" ]; then
+  echo "SUÍTE OFFLINE: $SKIPPED pulada(s) acima do teto BENCH_SKIP_MAX=$SKIP_MAX — reprovado."
+  exit 1
+fi
+
 exit "$FAILED"

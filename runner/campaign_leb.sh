@@ -75,6 +75,40 @@ if [ -s "$OUT" ]; then
   echo "campaign_leb: retomando em $OUT a partir da rep $FROM_REP (append)." >&2
 fi
 
+# A paid campaign requires `campaign_ready` (owner, 21/09: "pode fazer"). audit.sh computes
+# campaign_ready = zero failures AND zero "deferred", but until 0.8.15 nothing consumed the
+# field: run.sh aborts only on audit_passed, and this driver set none of the inputs. A paid
+# campaign ran to the end with the A5 canary (the proof that no unexpected MCP leaks into the
+# run), the A9 version and the A14 noop all "deferred", and the result still said
+# audit_passed:true: the clean stamp without the isolation proof.
+#
+# Checked here: only what the MODEL produces and the operator brings ready (A5, A9, A14), with
+# the same rule as audit.sh. A12 (proxy up) cannot be checked before the proxy starts; each rep
+# enforces it through the AUDIT_STRICT exported below, before exec, so a failed rep costs nothing.
+FALTA=""
+if [ -z "${CANARY_RESULT:-}" ] || [ ! -f "${CANARY_RESULT:-}" ]; then
+  FALTA="$FALTA
+  - A5 canário: rode \`runner/canary.sh --live\` e passe CANARY_RESULT=<o JSON que ele grava>"
+elif ! grep -q '"leaked"[[:space:]]*:[[:space:]]*false' "$CANARY_RESULT"; then
+  FALTA="$FALTA
+  - A5 canário: $CANARY_RESULT não diz \"leaked\": false (vazou, ou está ilegível)"
+fi
+case "${NOOP_OVERHEAD:-}" in
+  ''|*[!0-9]*) FALTA="$FALTA
+  - A14 noop: rode a T-000-noop e passe NOOP_OVERHEAD=<context_overhead_tokens>" ;;
+esac
+CC_VER="$(command -v claude >/dev/null 2>&1 && claude --version 2>/dev/null | head -1 || echo 'claude ausente')"
+if [ -z "${EXPECT_CLAUDE_VERSION:-}" ]; then
+  FALTA="$FALTA
+  - A9 versão: passe EXPECT_CLAUDE_VERSION=<a do manifesto> (instalada: $CC_VER)"
+else
+  case "$CC_VER" in
+    *"$EXPECT_CLAUDE_VERSION"*) ;;
+    *) FALTA="$FALTA
+  - A9 versão: instalada '$CC_VER' != esperada '$EXPECT_CLAUDE_VERSION'" ;;
+  esac
+fi
+
 # --dry-run: resolve tudo e passa por TODOS os guards, mas para antes de subir o
 # proxy e de gastar a primeira rep. Serve pro operador conferir o plano de uma
 # campanha cara (e é o único jeito de testar o caminho de RETOMADA sem pagar por ele).
@@ -90,8 +124,24 @@ if [ "$DRYRUN" -eq 1 ]; then
   else
     echo "  modo      : arquivo novo"
   fi
+  if [ -z "$FALTA" ]; then
+    echo "  pronta    : sim (A5, A9 e A14 satisfeitos; o A12 é cobrado em cada rep)"
+  else
+    echo "  pronta    : NÃO — a campanha real recusaria (exit 4). Falta:$FALTA"
+  fi
   exit 0
 fi
+
+if [ -n "$FALTA" ]; then
+  echo "campaign_leb: campanha NÃO pronta (campaign_ready) — recusando gastar." >&2
+  printf '  falta:%s\n' "$FALTA" >&2
+  echo "  (confira o plano sem gastar com --dry-run; docs/rodar.md §7)" >&2
+  exit 4
+fi
+# Every rep audits in STRICT mode: "deferred" becomes a failure and run.sh aborts before exec.
+# audit.sh runs as a child of run.sh without `env -i`, so it inherits these.
+export AUDIT_STRICT=1 AUDIT_REQUIRE_CANARY=1 AUDIT_REQUIRE_PROXY=1
+export CANARY_RESULT NOOP_OVERHEAD EXPECT_CLAUDE_VERSION
 
 # Log do proxy por INVOCAÇÃO: o C3 também é evidência paga e não pode ser truncado.
 # (Arquivo próprio por campanha; o collect já filtra por janela de tempo do caso.)

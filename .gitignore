@@ -11,8 +11,8 @@
 /work/*
 !/work/.gitkeep
 
-# Runs: WRITE-ONLY e grandes. Scorecards oficiais arquivados/publicados à parte
-# (mesma regra do LEB para instances/*/runs/).
+# Runs: WRITE-ONLY e grandes (mesma regra do LEB para instances/*/runs/).
+# Official results are copied to results/<run_id>/, which IS versioned (results/README.md).
 /runs/*
 !/runs/README.md
 

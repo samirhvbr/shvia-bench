@@ -148,6 +148,20 @@ Enquanto não tiver adapter, o `track_b` recusa com mensagem clara.
 Todo `run.sh` roda o **bloco A** (A1–A14) antes de executar — se falhar, **aborta**.
 `audit_passed` = mecanicamente limpo; `campaign_ready` = também com A5 (canário)/A9/
 A12/A14 satisfeitos. Pra uma campanha pontuada, exija `campaign_ready=true`.
+
+**Since 0.8.14 `runner/campaign_leb.sh` enforces it: a paid campaign refuses to spend (exit 4)
+unless the three inputs only the model can produce are ready.** It lists what is missing, and
+`--dry-run` shows the same verdict (`pronta: sim/NÃO`) without spending anything:
+
+| Check | Input the operator brings | How to get it |
+|---|---|---|
+| A5 canary | `CANARY_RESULT=<json>` saying `"leaked": false` | `runner/canary.sh --live` |
+| A9 harness version | `EXPECT_CLAUDE_VERSION=<version>`, matching `claude --version` | the campaign manifest |
+| A14 noop overhead | `NOOP_OVERHEAD=<context_overhead_tokens>` | the T-000-noop run |
+
+A12 (proxy up) cannot be checked before the driver starts the proxy. Every rep audits in strict
+mode (`AUDIT_STRICT=1`), so a deferred check fails the rep **before** the model is called, and
+a failed rep costs nothing. Exploratory single runs still go straight through `runner/run.sh`.
 ```bash
 ./runner/canary.sh --live        # A5 ao vivo: prova que MCP não previsto não vaza
 ./runner/run.sh --task noop --audit-only   # só audita, sem executar

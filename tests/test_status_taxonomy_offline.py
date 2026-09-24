@@ -285,10 +285,15 @@ def main():
     with open(os.path.join(fake_leb, "instances", "LEB-100-A", "code", "x.php"), "w") as f:
         f.write("<?php\n")
 
-    def driver(*args):
+    # Hermetic: the campaign_ready inputs (0.8.14) must not leak in from the caller's shell,
+    # or the refusal checks below would pass or fail by accident.
+    PRONTA = ("CANARY_RESULT", "NOOP_OVERHEAD", "EXPECT_CLAUDE_VERSION")
+
+    def driver(*args, extra=None):
+        env = {k: v for k, v in os.environ.items() if k not in PRONTA}
+        env.update(LEB_ROOT=fake_leb, **(extra or {}))
         return subprocess.run(["bash", drv] + list(args), capture_output=True, text=True,
-                              cwd=ROOT, timeout=60,
-                              env=dict(os.environ, LEB_ROOT=fake_leb))
+                              cwd=ROOT, timeout=60, env=env)
 
     # o guard do GOLDEN tem de estar satisfeito — senão os checks seguintes passam
     # por abortar cedo demais, provando nada
@@ -329,6 +334,46 @@ def main():
         "M-dummy", "LEB-100-A", "3", "claude-code", "--from-rep", "9").returncode == 2
     checks["driver: --from-rep não numérico aborta (exit 2)"] = driver(
         "M-dummy", "LEB-100-A", "3", "claude-code", "--from-rep", "x").returncode == 2
+
+    # ---------- (c2) a paid campaign requires campaign_ready (0.8.14) ----------
+    # campaign_ready existed in audit.json with no consumer: a paid campaign ran with the A5
+    # canary, A9 version and A14 noop "deferred" and still came out audit_passed:true.
+    novo = os.path.join(tmp, "nunca-pago.jsonl")
+    p_nr = driver("M-dummy", "LEB-100-A", "1", "claude-code", "--out", novo)
+    checks["driver: campanha sem campaign_ready recusa gastar (exit 4)"] = p_nr.returncode == 4
+    checks["driver: a recusa nomeia A5, A9 e A14"] = all(
+        x in p_nr.stderr for x in ("A5", "A9", "A14"))
+    checks["driver: a recusa não grava resultado"] = not os.path.exists(novo)
+    p_dr = driver("M-dummy", "LEB-100-A", "1", "claude-code", "--out", novo, "--dry-run")
+    checks["driver: dry-run conta que não está pronta, sem recusar"] = (
+        p_dr.returncode == 0 and "pronta    : NÃO" in p_dr.stdout)
+
+    fakebin = os.path.join(tmp, "fakebin")
+    os.makedirs(fakebin, exist_ok=True)
+    with open(os.path.join(fakebin, "claude"), "w") as f:
+        f.write('#!/bin/sh\necho "9.9.9 (Claude Code)"\n')
+    os.chmod(os.path.join(fakebin, "claude"), 0o755)
+    canario = os.path.join(tmp, "canary.json")
+    with open(canario, "w") as f:
+        f.write('{"leaked": false}\n')
+    pronta = dict(CANARY_RESULT=canario, NOOP_OVERHEAD="1234", EXPECT_CLAUDE_VERSION="9.9.9",
+                  PATH=fakebin + os.pathsep + os.environ.get("PATH", ""))
+    p_ok = driver("M-dummy", "LEB-100-A", "1", "claude-code", "--out", novo, "--dry-run",
+                  extra=pronta)
+    checks["driver: com A5/A9/A14 satisfeitos a campanha está pronta"] = (
+        p_ok.returncode == 0 and "pronta    : sim" in p_ok.stdout)
+
+    vazou = os.path.join(tmp, "canary-vazou.json")
+    with open(vazou, "w") as f:
+        f.write('{"leaked": true}\n')
+    p_vz = driver("M-dummy", "LEB-100-A", "1", "claude-code", "--out", novo,
+                  extra=dict(pronta, CANARY_RESULT=vazou))
+    checks["driver: canário que vazou recusa (exit 4)"] = (
+        p_vz.returncode == 4 and "vazou" in p_vz.stderr)
+    p_ver = driver("M-dummy", "LEB-100-A", "1", "claude-code", "--out", novo,
+                   extra=dict(pronta, EXPECT_CLAUDE_VERSION="1.0.0"))
+    checks["driver: versão do harness diferente da esperada recusa (exit 4)"] = (
+        p_ver.returncode == 4 and "1.0.0" in p_ver.stderr)
 
     # ---------- (d) o C2 sobrevive à regra de slug do harness ----------
     # Até a 0.6.1 o slug era `cwd.replace('/','-')`, mas o CC também troca '_' — e

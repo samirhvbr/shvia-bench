@@ -63,8 +63,66 @@ def run_path(name, gateway, handler, model_id, expect_stop):
     }
 
 
+def run_main(argv, models, gateways, tmp):
+    """Runs track_a.main() for real (the ceiling lives there, not in run_case)."""
+    import contextlib
+    import io
+    mp, gp = os.path.join(tmp, "models.json"), os.path.join(tmp, "gateways.json")
+    json.dump({"models": models}, open(mp, "w"))
+    json.dump({"gateways": gateways}, open(gp, "w"))
+    err = io.StringIO()
+    old = sys.argv
+    sys.argv = ["track_a.py", "--models", mp, "--gateways", gp] + argv
+    try:
+        with contextlib.redirect_stderr(err):
+            try:
+                rc = track_a.main()
+            except SystemExit as e:
+                rc = e.code
+    finally:
+        sys.argv = old
+    return rc, err.getvalue()
+
+
+def teto_checks():
+    """0.8.15: Track A had no spend ceiling (Track B has --max-budget-usd)."""
+    import tempfile
+    tmp = tempfile.mkdtemp(prefix="track-a-teto-")
+    port = serve(dummy_upstream.H)
+    gw = {"anthropic-dummy": {"kind": "anthropic", "path": "/v1/messages", "version": "2023-06-01",
+                              "base_url": f"http://127.0.0.1:{port}", "key_env": "TRACK_A_TEST_KEY"}}
+    base = {"id": "dummy-model-1", "max_tokens": 16, "sampling_ok": False,
+            "params": {"effort": "high"}, "gateway": "anthropic-dummy"}
+    out = os.path.join(tmp, "out.jsonl")
+    # real cost per rep = 0.137 (123 in / 7 out at PRICE); worst case per rep ~0.048
+    # (63-byte noop prompt / 4, plus 16 output tokens). Ceiling 0.30: rep1 and rep2 run
+    # (0.274 spent), rep3 would reach 0.322 → it must not run.
+    rc, err = run_main(["--model", "M-x", "--task", "T-000-noop", "--reps", "5", "--out", out,
+                        "--max-spend-usd", "0.30"], {"M-x": dict(base, price_per_mtok=PRICE)}, gw, tmp)
+    linhas = len(open(out).read().splitlines()) if os.path.exists(out) else 0
+    semp_rc, semp_err = run_main(["--model", "M-np", "--task", "T-000-noop", "--reps", "1",
+                                  "--out", os.path.join(tmp, "np.jsonl")],
+                                 {"M-np": dict(base, price_per_mtok={"input": None, "output": None})},
+                                 gw, tmp)
+    livre_rc, livre_err = run_main(["--model", "M-np", "--task", "T-000-noop", "--reps", "1",
+                                    "--out", os.path.join(tmp, "livre.jsonl"), "--max-spend-usd", "0"],
+                                   {"M-np": dict(base, price_per_mtok={"input": None, "output": None})},
+                                   gw, tmp)
+    return {
+        "teto: 5 reps pedidas, só 2 cabem em US$0.30": linhas == 2,
+        "teto: anuncia o corte antes de gastar a rep3": "TETO" in err and "rep3" in err,
+        "teto: invocação cortada não sai 0": rc == 1,
+        "teto: modelo sem preço é recusado antes de qualquer chamada": (
+            semp_rc not in (0, None) and "sem preço" in str(semp_rc)
+            and not os.path.exists(os.path.join(tmp, "np.jsonl"))),
+        "teto: --max-spend-usd 0 roda sem teto, avisando": (
+            "SEM TETO" in livre_err and os.path.exists(os.path.join(tmp, "livre.jsonl"))),
+    }
+
+
 def main():
     checks = {}
+    checks.update(teto_checks())
     checks.update(run_path(
         "anthropic",
         {"kind": "anthropic", "path": "/v1/messages", "version": "2023-06-01"},

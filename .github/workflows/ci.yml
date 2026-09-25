@@ -34,22 +34,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      # ⚠️ Medido em 21/09/2026: este comentário AFIRMAVA que o `run_all.sh` falha sozinho
-      # quando uma suíte é PULADA. Ele não falhava — `exit "$FAILED"` ignorava o contador de
-      # pulos, e duas outras linhas do script diziam o mesmo sem nenhuma consequência. Três
-      # declarações, zero leitores.
+      # `test_leb_offline.py` needs the LEB (AI-BENCHMARK) next to it, and without it the suite
+      # is SKIPPED, taking with it the **7 anti-contamination checks** — "golden does NOT contain
+      # private/matrix/probe" and "prompt does NOT leak the answer matrix". They are the only
+      # automatic proof that the model never receives the answer key.
       #
-      # O que se perde aqui: `test_leb_offline.py` procura o AI-BENCHMARK (repo PRIVADO) e pula
-      # sem ele, levando junto os **7 checks anti-contaminação** — "golden NÃO contém
-      # private/matrix/probe" e "prompt NÃO vaza a matriz-gabarito". É a única prova automática
-      # de que o modelo não recebe o gabarito, e ela não roda neste job.
+      # 🔴 0.8.18 assumed the AI-BENCHMARK was private and out of CI's reach, and left this job
+      # red on purpose. Measured on 25/09/2026: the repository is PUBLIC (this repo's CLAUDE.md
+      # already said so), so a plain clone reaches it with no key. The owner's answer the same
+      # day: CI brings it. It is cloned OUTSIDE the workspace, into the runner's temp dir, so no
+      # check that walks this repository sees another repository's files.
+      #
+      # Unpinned on purpose, like the local setup (`~/x/AI-BENCHMARK`, cloned next to this repo):
+      # the checks guard the task source as it is today. A change there that leaks the matrix
+      # should turn this job red, and pinning a commit would hide exactly that.
+      #
+      # The network is used only here, to fetch the task source. The suite itself stays offline.
+      - name: Clone the LEB (AI-BENCHMARK) next to the suite
+        run: |
+          git clone --quiet --depth 1 https://github.com/samirhvbr/AI-BENCHMARK "$RUNNER_TEMP/AI-BENCHMARK"
+          echo "LEB_ROOT=$RUNNER_TEMP/AI-BENCHMARK" >> "$GITHUB_ENV"
+      # ⚠️ Measured on 21/09/2026: this comment used to CLAIM that `run_all.sh` fails by itself
+      # when a suite is SKIPPED. It did not — `exit "$FAILED"` ignored the skip counter.
       #
       # ✅ The owner's decision on 24/09/2026 (panel card `bench-ci-suite-pulada`, option b):
-      # zero tolerance. `BENCH_SKIP_MAX: "0"` fails this job whenever a suite is skipped, so it
-      # stays RED until the AI-BENCHMARK is reachable from CI (option a, a deploy key, was not
-      # chosen). Red here means "the anti-leak checks did not run", which is true, instead of a
-      # green that claimed they had. Do not raise the ceiling to make the job green: that is
-      # the lie this line exists to stop.
+      # zero tolerance. `BENCH_SKIP_MAX: "0"` fails this job whenever a suite is skipped. With
+      # the LEB cloned above, nothing should skip; if something does, red says "a check did not
+      # run", which is true. Do not raise the ceiling to make the job green: that is the lie
+      # this line exists to stop.
       - name: tests/run_all.sh
         env:
           BENCH_SKIP_MAX: "0"

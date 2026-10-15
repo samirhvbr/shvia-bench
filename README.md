@@ -45,6 +45,9 @@ environment** — so the runner uses `env -i` + a sandbox `HOME` +
 `CLAUDE_CONFIG_DIR`, on the same machine, no container, without touching your
 real Claude Code install. (See spec §4.0.)
 
+This controls configuration contamination; it is not an OS filesystem or network
+sandbox. Runs share a recreated `profile/` in one checkout: execute them serially.
+
 ## Layout
 
 ```
@@ -65,7 +68,7 @@ runs/                    WRITE-ONLY for execution. No process that runs a model 
                          a future run (§4.1). Post-run steps (verify patching,
                          reclassify, summaries) do read it: they run after the fact
                          and feed no model.
-work/                    ephemeral per-task workspaces
+work/                    retained placeholder; live workspaces default outside this repository
 ```
 
 **`status` is not a single axis.** `harness_outcome` (did the execution yield a
@@ -75,31 +78,23 @@ is `infra_error` and never becomes the model's score. This is enforced structura
 in `runner/status.py`, after a transient API error was once recorded as a benchmark
 failure on a paid run that had actually passed.
 
-## Status — Phase 1 (foundation)
+## Current implementation and acceptance
 
-- [x] Sanitized `run.sh`, sandbox profile, blocking audit block A
-- [x] Passive logging proxy (validated offline against a local dummy upstream)
-- [x] `T-000-noop`, manifest schema, preflight
-- [x] Canary A5 **detector** proven with fixtures (offline)
-- [ ] **Live exit criterion** — planting a real MCP and running `claude` to prove
-      A5, plus measuring `context_overhead_tokens` — needs the bench API key
-      (`.secrets/anthropic`). This is the project's standing "smoke ao vivo" gate.
-- [x] **Track A runner** (`track_a.py`) — **multi-vendor**: `config/gateways.json`
-      covers Anthropic (native) + OpenAI-compatible vendors (OpenAI, xAI/Grok,
-      DeepSeek, Z.ai/GLM, Novita, OpenRouter, Kilo). Streaming, per-vendor request
-      shaping + auth, cost recompute, N-reps + variance. Offline 18/18. Real
-      campaign gated on each vendor's key (`.secrets/<vendor>`).
-- [x] **Track B runner** (`track_b.py` + `collect.py`) — drives isolated
-      `claude -p`, fuses C1 (result) + C2 (transcript) + C3 (proxy); Claude Code
-      2.1.207 surface validated empirically (`config/harness-matrix.md`); offline
-      test 30/30. Real campaign gated on the bench key.
-- [x] **LEB wired as Track B task source** (`leb.py`, `campaign_leb.sh`) — real
-      legacy-evolution cases, verified by the LEB's own docker harness post-run.
-- [x] **Measurement integrity (0.7.0)** — two-axis `status` (`runner/status.py`),
-      transcript found by session id, paid results never overwritten, campaign
-      resumable via `--from-rep`. Offline suite: `bash tests/run_all.sh`
-      (67 checks in the taxonomy suite alone).
-- [ ] Phase 4 — real campaign (live A5/A14, LEB instances, §14 operator decisions)
+Source review: October 15, 2026, baseline `872dfab` (`0.9.1`). Both tracks,
+collection, the LEB campaign driver, result repair and immutable publication
+conventions exist. Only the Claude Code adapter is implemented for Track B;
+Kilo, Cline and Cursor entries are templates, not working integrations.
+
+The original phase specification is not a live campaign ledger. The current
+[operator guide](docs/current-operations.md) documents commands, artifacts,
+readiness gates, spending and isolation limits. The detailed
+[runbook](docs/rodar.md) remains available; official publication rules are in
+[results/README.md](results/README.md).
+
+Offline checks exercise fake harnesses and local dummy upstreams. They do not
+prove a current provider key works, live MCP isolation, model identity, billing
+accuracy or a publishable campaign. Live A5, expected harness version and noop
+context overhead are required operator inputs before a paid LEB campaign.
 
 ## Requirements
 
@@ -109,5 +104,7 @@ only for LEB instances (not for Phase 1). Run `./preflight.sh` to check.
 ## Secrets
 
 The bench API key lives in `.secrets/anthropic` (gitignored), injected
-individually by `run.sh`. Never `source`d, never versioned, never passed as a CLI
-argument.
+individually by `run.sh`; the target harness receives it through its environment.
+Do not source or version credential files, or pass a real key as a harness option.
+The current launcher uses `env KEY=value`, so this does not guarantee absence from
+its transient launcher argv; see the [operator limits](docs/current-operations.md).

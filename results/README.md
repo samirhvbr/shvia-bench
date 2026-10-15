@@ -3,7 +3,8 @@
 Where the official results of paid campaigns live. The owner's decision on 24/09/2026 (panel
 card `bench-onde-ficam-resultados`): **a versioned folder in this repository**.
 
-`runs/` is scratch: write-only, ignored by git, and nothing reads from it (spec §4.1). A run
+`runs/` is scratch: ignored by git and write-only for model execution (spec §4.1).
+Post-run operator verification and repair can read it. A run
 becomes official when it is copied here, once, after its audit is written.
 
 ## Layout

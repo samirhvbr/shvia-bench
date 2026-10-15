@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2 - Document current benchmark execution and acceptance boundaries
+
+Add an operator guide for implemented tracks, isolation, serial execution,
+readiness, effective limits, artifacts and official publication. Reconcile
+README status and distinguish post-run reads from model execution. Correct
+proxy/result output paths and the unsupported campaign budget example without
+changing runners, schemas, configuration or paid results.
+
 Entries in the commit-message format (`version - short description in English`),
 newest first. **Each `##` heading is literally the commit subject** — the entry
 is written *before* the commit, so the sentence that lands in `git log` is one

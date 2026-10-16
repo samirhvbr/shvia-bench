@@ -1,5 +1,8 @@
 # Como rodar — runbook do operador
 
+> Current source-reviewed behavior and limits: [operator guide](current-operations.md).
+> Historical campaign examples below do not replace current readiness checks.
+
 Guia prático pra rodar o SHVIA-BENCH. Conceitos/spec: [ambiente-isolado.md](ambiente-isolado.md).
 Invariantes que **não se relitiga**: [../CLAUDE.md](../CLAUDE.md).
 
@@ -42,13 +45,14 @@ Roda **dentro** do `run.sh` (env sanitizado + proxy). Vendors/modelos em
 [../config/gateways.json](../config/gateways.json) e [../config/models.json](../config/models.json).
 ```bash
 # proxy (verdade-base C3) apontando pro vendor:
-SHVIA_PROXY_LOG=runs/a.jsonl python3 proxy/logging_proxy.py --upstream https://api.anthropic.com --allow api.anthropic.com &
+SHVIA_PROXY_LOG=runs/a-proxy.jsonl python3 proxy/logging_proxy.py --upstream https://api.anthropic.com --allow api.anthropic.com &
 # 5 reps de um modelo numa tarefa (CAMINHO ABSOLUTO — o run.sh faz cd pro workspace):
 ./runner/run.sh --task T-000-noop -- \
   python3 "$PWD/runner/track_a.py" --model M-opus48 --task T-000-noop --reps 5 --out "$PWD/runs/a.jsonl"
 ```
-Vendors OpenAI-compat (OpenAI/xAI/DeepSeek/GLM/Novita/OpenRouter/Kilo) funcionam
-igual — só trocar `--model` pro alias do vendor. **Sampling**: o `track_a` só manda
+Vendors OpenAI-compat podem usar o alias do vendor, mas não herdam automaticamente
+a rota de proxy da Anthropic. Confira o [guia atual](current-operations.md) antes
+de afirmar cobertura C3. **Sampling**: o `track_a` só manda
 `temperature/top_p` se o gateway E o modelo permitirem (Anthropic 4.6+ e raciocínio
 = 400 se mandar).
 
@@ -70,8 +74,7 @@ runner/campaign_leb.sh M-opus48 LEB-100-A 3      # <model_alias> <instância> [r
 ```
 O driver cuida de tudo: proxy, workspace **fresco por rep** (do `code/` da
 instância), `run.sh` (isolado) → `claude -p` edita o legado → **verify do LEB**
-(docker, no ambiente completo, pós-run) → `results.jsonl`. Kill-switch `--budget`
-por caso.
+(docker, no ambiente completo, pós-run) → `results.jsonl`. O driver não recebe `--budget`; veja os limites efetivos no guia atual.
 
 **Retomar uma campanha interrompida** — cada rep custa dinheiro (ordem de US$1/rep
 no Opus), então o driver **nunca** sobrescreve um `results.jsonl` que já tem rep

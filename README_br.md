@@ -75,7 +75,17 @@ vira nota do modelo. Isso é garantido por estrutura em `runner/status.py`, depo
 um erro transitório de API ter sido registrado como falha de benchmark numa rep paga
 que na verdade havia passado.
 
-## Status — Fase 1 (fundação)
+## Estado conferido em 15/10/2026
+
+As duas trilhas, coleta, campanha LEB e reparo de resultados estão implementados.
+Apenas Claude Code tem adapter funcional na Trilha B. O
+[guia operacional atual](docs/current-operations.md) descreve os limites,
+artefatos, prontidão e publicação; testes offline não substituem aceitação com
+provedores reais. Execute campanhas em série por checkout: o HOME `profile/` é
+recriado a cada execução. O isolamento de configuração não restringe todo o
+filesystem ou a rede do processo.
+
+## Checklist histórico de fases — Fase 1 (fundação)
 
 - [x] `run.sh` sanitizado, perfil sandbox, auditoria bloqueante do bloco A
 - [x] Proxy passivo de logging (validado offline contra um upstream dummy local)

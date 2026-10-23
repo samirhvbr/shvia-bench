@@ -73,7 +73,10 @@ def parse_anthropic_sse(text):
         if isinstance(msg, dict):
             model = model or msg.get("model")
             if isinstance(msg.get("usage"), dict):
-                usage.update({k: v for k, v in msg["usage"].items() if v is not None})
+                # message_start's output count is provisional. Only the later
+                # message_delta usage can measure the completed output.
+                usage.update({k: v for k, v in msg["usage"].items()
+                              if v is not None and k != "output_tokens"})
         if isinstance(o.get("usage"), dict):
             usage.update({k: v for k, v in o["usage"].items() if v is not None})
         d = o.get("delta") or {}
@@ -122,6 +125,10 @@ def parse_openai_sse(text):
 
 
 def compute_cost(usage, price):
+    # A finished response may omit usage or report only part of it. Neither is a
+    # free request: require both core counters before publishing a total cost.
+    if usage.get("input_tokens") is None or usage.get("output_tokens") is None:
+        return None
     # métrica ausente = null, NUNCA 0 (§10.3): se há tokens num bucket mas o preço
     # dele é None/ausente, o custo é DESCONHECIDO → retorna None (não zero silencioso).
     total = 0.0
@@ -191,20 +198,21 @@ def run_case(model_cfg, gateway, prompt, api_key, base_url, ids):
         parse = parse_anthropic_sse if kind == "anthropic" else parse_openai_sse
         usage, model, stop, reply = parse(buf.decode("utf-8", "replace"))
         gen_ms = round(e2e_ms - ttft_ms, 1) if ttft_ms is not None else None
-        out_tok = usage.get("output_tokens", 0) or 0
-        total = sum(usage.get(k, 0) or 0 for k in
-                    ("input_tokens", "output_tokens",
-                     "cache_creation_input_tokens", "cache_read_input_tokens"))
+        tokens = {k: usage.get(k) for k in
+                  ("input_tokens", "output_tokens",
+                   "cache_creation_input_tokens", "cache_read_input_tokens")}
+        out_tok = tokens["output_tokens"]
+        total = (sum(v or 0 for v in tokens.values())
+                 if tokens["input_tokens"] is not None and out_tok is not None else None)
         rec.update({
             "model_id_resolved": model or model_cfg["id"], "provider_effective": provider,
             "finished_utc": round(time.time(), 3), "status": "completed", "stop_reason": stop,
             "time": {"e2e_ms": e2e_ms, "ttft_ms_first_call": ttft_ms, "generation_ms": gen_ms},
-            "tokens": {**{k: usage.get(k) for k in
-                          ("input_tokens", "output_tokens",
-                           "cache_creation_input_tokens", "cache_read_input_tokens")},
-                       "total_tokens": total or None},
-            "throughput": {"tps_generation": round(out_tok / (gen_ms / 1000), 2) if gen_ms else None,
-                           "tps_call": round(out_tok / (e2e_ms / 1000), 2) if e2e_ms else None,
+            "tokens": {**tokens, "total_tokens": total},
+            "throughput": {"tps_generation": round(out_tok / (gen_ms / 1000), 2)
+                           if out_tok is not None and gen_ms else None,
+                           "tps_call": round(out_tok / (e2e_ms / 1000), 2)
+                           if out_tok is not None and e2e_ms else None,
                            "tps_session": None},
             # `usage_source` também na Trilha A: sem ele, o runbook (que manda ler
             # "registro sem esse campo é anterior à 0.8.0") classificaria como
@@ -213,7 +221,7 @@ def run_case(model_cfg, gateway, prompt, api_key, base_url, ids):
             # da própria API, que é a fonte mais direta que existe.
             "cost": {"cost_usd_computed": compute_cost(usage, model_cfg["price_per_mtok"]),
                      "cost_usd_harness": None, "cost_delta_pct": None,
-                     "usage_source": "a_api_response"},
+                     "usage_source": "a_api_response" if any(v is not None for v in tokens.values()) else None},
             "request_id": request_id, "reply_preview": reply[:200]})
         return rec
     except Exception as exc:  # noqa: BLE001

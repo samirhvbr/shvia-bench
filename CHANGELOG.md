@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.3 - Keep missing Track A usage unknown when accounting for requests
+
+A finished API response without usage was recorded with zero cost and throughput,
+even though its token counts were unknown. The repetition budget then counted the
+request as free instead of using its existing estimate, allowing more calls than
+the configured ceiling intended.
+
+Require input and output counts for total tokens and computed cost, preserve
+unknown throughput when output is absent, and only claim an API usage source when
+a token counter was measured. Explicit zeros stay zero. Loopback HTTP regressions
+cover both API formats with absent, empty, null, partial and zero usage; the real
+repetition loop now stops at the budget estimate when the server omits usage.
+An Anthropic stream's initial output count is not mistaken for its final count
+when the closing usage update is missing.
+No historical results, price tables or scoring rules are changed.
+
 ## 0.9.2 - Document current benchmark execution and acceptance boundaries
 
 Add an operator guide for implemented tracks, isolation, serial execution,

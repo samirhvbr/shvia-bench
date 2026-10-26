@@ -65,7 +65,7 @@ runs/                    SOMENTE ESCRITA para execução. Nenhum processo que ro
                          realimentar run futuro (§4.1). Passos de PÓS-RUN (patch do
                          verify, reclassify, sumário) leem: rodam depois do fato e
                          não alimentam modelo nenhum.
-work/                    workspaces efêmeros por tarefa
+work/                    retained placeholder; live workspaces default outside this repository
 ```
 
 **`status` não é um eixo só.** `harness_outcome` (a execução produziu medição
@@ -119,6 +119,9 @@ só para instâncias do LEB (não para a Fase 1). Rode `./preflight.sh` pra conf
 
 ## Segredos
 
-A chave do bench mora em `.secrets/anthropic` (gitignored), injetada
-individualmente pelo `run.sh`. Nunca `source`ada, nunca versionada, nunca em
-argumento de CLI.
+Keys belong in ignored `.secrets/<vendor>` files and are injected individually
+by `run.sh`; credential files are never sourced or versioned. The current
+external `env KEY=value ...` launcher can expose assignments in transient process
+arguments. Redaction protects the environment snapshot, not arbitrary model
+output or transcripts. See the [current operator guide](docs/current-operations.md)
+for the execution boundary and the pending Track A accounting correction.

@@ -1,31 +1,33 @@
-# profile.template — HOME sandbox versionado
+# profile.template — versioned sandbox HOME
 
-Este diretório é o **template** do `HOME` sandbox. A cada run, o `run.sh` faz
-`rm -rf ./profile && cp -R config/profile.template ./profile` e aponta
-`HOME` e `CLAUDE_CONFIG_DIR` para a cópia viva `./profile` (gitignored). Assim a
-sua instalação real do Claude Code (`~/.claude`) **nunca** é tocada.
+`runner/run.sh` recreates `profile/` from this template for every invocation.
+`HOME` points to that copy; `CLAUDE_CONFIG_DIR` points to its `.claude/`
+subdirectory. The runner does not use the caller's real Claude configuration.
+This controls configuration discovery, not operating-system filesystem or network
+access. Run serially per checkout because the live profile is shared.
 
-## Por que o `settings.json` é mínimo
+## Settings and the Track B invocation
 
-O isolamento **não** vem daqui. Vem de três lugares, nesta ordem de robustez:
+The tracked `.claude/settings.json` deliberately contains only:
 
-1. `env -i` + `HOME` sandbox + `CLAUDE_CONFIG_DIR` (a fronteira real, §4.0).
-2. Variáveis de ambiente explícitas no `run.sh` (telemetria off, autoupdate off,
-   autocompact off, esforço/raciocínio pinados) — §4.2.
-3. `--mcp-config config/mcp.empty.json --strict-mcp-config` na invocação da
-   Trilha B, **mais o canário A5** que valida empiricamente que nenhum MCP
-   vazou (§11) — porque as flags de MCP têm bugs conhecidos e não se confia
-   cegamente nelas (§6.2).
+- `includeCoAuthoredBy: false`, to avoid generated coauthor trailers;
+- `cleanupPeriodDays: 3650`, to retain transcripts during a campaign;
+- `permissions.defaultMode: "default"` and empty `permissions.allow` / `deny` lists.
 
-O `settings.json` só fixa o que precisa ser determinístico e local:
+`track_b.py` passes this copied settings file through `--settings`, uses
+`--mcp-config` with the repository's empty MCP file and adds `--strict-mcp-config`.
+Its default permission mode is `acceptEdits`; standalone callers can select
+`--permission-mode`. Empty permission lists are not a deny-all policy or a
+workspace boundary. The campaign wrapper does not expose a permission-mode flag.
 
-- `includeCoAuthoredBy: false` — sem trailer de co-autoria, saída determinística.
-- `cleanupPeriodDays: 3650` — nada é apagado no meio da campanha; as transcrições
-  em `$CLAUDE_CONFIG_DIR/projects/` são a fonte de métricas C2 (§10.1) e o sandbox
-  inteiro é descartado por run de qualquer forma.
-- `permissions` explícito e vazio — o modelo de permissão da Trilha B (auto
-  restrito ao workspace, §6.3) é fixado na Fase 3, depois de validar o surface
-  de flags/settings contra a versão instalada do Claude Code.
+`run.sh` supplies the sanitized environment, telemetry/update/compaction controls
+and pinned effort/thinking values. The live canary and version check validate the
+installed harness contract; configuration flags alone do not prove MCP isolation.
+See the [operator guide](../../docs/current-operations.md) and the original
+[specification](../../docs/ambiente-isolado.md) for the implemented/design boundary.
 
-**Não** adicione hooks, statusLine, MCP, subagentes ou `env` aqui — qualquer um
-deles é um vetor de contaminação (V1–V7). A ausência é intencional.
+Transcripts under `.claude/projects/` supply C2 metrics. Retain needed artifacts
+securely before the next run recreates the profile: the long cleanup period does
+not survive that deletion. Do not add hooks, status lines, MCP servers, subagents
+or environment overrides to this template; they would change the benchmark's
+configuration inputs.

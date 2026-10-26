@@ -80,14 +80,15 @@ failure on a paid run that had actually passed.
 
 ## Current implementation and acceptance
 
-Source review: October 15, 2026, baseline `872dfab` (`0.9.1`). Both tracks,
+Source review: October 26, 2026, baseline `bf14eb0` (`0.9.2`). Both tracks,
 collection, the LEB campaign driver, result repair and immutable publication
 conventions exist. Only the Claude Code adapter is implemented for Track B;
 Kilo, Cline and Cursor entries are templates, not working integrations.
 
 The original phase specification is not a live campaign ledger. The current
 [operator guide](docs/current-operations.md) documents commands, artifacts,
-readiness gates, spending and isolation limits. The detailed
+readiness gates, spending and isolation limits, including the current Track A
+missing-usage accounting limitation and its pending correction. The detailed
 [runbook](docs/rodar.md) remains available; official publication rules are in
 [results/README.md](results/README.md).
 

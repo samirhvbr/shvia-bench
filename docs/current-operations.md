@@ -1,6 +1,6 @@
 # Current operator guide
 
-Reviewed October 15, 2026 against `872dfab` (`0.9.1`). This guide describes the
+Reviewed October 26, 2026 against `bf14eb0` (`0.9.2`). This guide describes the
 implemented command paths; the [original specification](ambiente-isolado.md)
 contains design choices and the [detailed runbook](rodar.md) has further examples.
 No paid run, live canary or provider acceptance was performed for this review.
@@ -65,6 +65,26 @@ options and never source a credential file. The launcher currently executes
 not an argv-secrecy guarantee. The snapshot is built with redacted placeholders. Review all artifacts before publication: configuration
 redaction does not prove that a model response or transcript contains no secret.
 
+## Configuration that reaches a run
+
+`config/run.defaults.env` is sourced on the host before `env -i`. Setting a value
+there does not automatically pass it to the model process.
+
+| Control | Effective use |
+|---|---|
+| `WORK_ROOT` | Host workspace parent; defaults to `${TMPDIR:-/tmp}/shvia-bench-work` |
+| `BENCH_EXTRA_PATH` | Prepended to the sanitized `/usr/local/bin:/usr/bin:/bin`; include the harness and its runtime directories |
+| `EFFORT_PINNED`, `THINKING_PINNED` | Forwarded as `CLAUDE_CODE_EFFORT_LEVEL` and `MAX_THINKING_TOKENS` |
+| `PROXY_HOST`, `PROXY_PORT` | Form the forwarded `ANTHROPIC_BASE_URL`; they do not start a proxy |
+| `PROXY_UPSTREAM`, `PROXY_ALLOWED_HOSTS` | Read from the proxy process environment, or overridden by `--upstream` / `--allow`; editing the runner defaults does not configure a separately launched proxy |
+| `MAX_TURNS`, `BUDGET_PER_CASE_USD`, `TIMEOUT_S` | Not forwarded through `run.sh`; pass standalone Track B flags explicitly |
+| `LEB_ROOT` | Used by campaign setup and passed explicitly as `--leb-root` to the task adapter |
+
+Track B passes `--permission-mode acceptEdits` by default; standalone callers can
+select `--permission-mode`. The empty permissions lists in the profile template
+do not restrict the process to its workspace or block network access. See the
+[profile contract](../config/profile.template/README.md) before changing settings.
+
 ## Track A and the proxy
 
 Use a different file for proxy records and result records. Mixing them creates
@@ -88,6 +108,17 @@ Track A defaults to a **US$2 ceiling per invocation**, not per repetition.
 It estimates the worst next request before starting it. This is not an external
 billing cap: prices and prompt estimates must be valid. Missing prices are refused
 unless the operator explicitly disables the ceiling with `--max-spend-usd 0`.
+
+**Known accounting limitation in this baseline:** when a successful stream omits
+usage, Track A can record computed cost and throughput as zero, retain a partial
+token total, or retain the provisional Anthropic output counter from
+`message_start`. It also writes `a_api_response` without proving complete usage.
+The repetition ceiling uses that computed cost, so a false zero bypasses the
+existing worst-case accounting fallback. Do not interpret these values as a free
+request or a measured spending guarantee.
+[PR #10](https://github.com/samirhvbr/shvia-bench/pull/10) proposes preserving
+unknown usage and applying the existing fallback; it is open and unmerged as of
+October 26, 2026. Do not rewrite historical paid artifacts to simulate that fix.
 
 `run.sh` forwards `ANTHROPIC_BASE_URL` to its proxy, but does not forward arbitrary
 vendor base-URL variables through `env -i`. Other vendors can run directly with
@@ -139,10 +170,10 @@ For Track B, keep `harness_outcome` separate from `verification`. A pending verd
 is not a pass; an API error is not a model failure. `runner/status.py` arbitrates
 status. Its collector prefers C3 cost only with complete coverage, then deduplicated
 C2, then C1; no usable source means `null`, not zero. Read coverage and
-`cost.usage_source` before comparing cost deltas. Track A computes usage directly
-from the API response and records `a_api_response`; starting a proxy does not
-make its cost collector use the Track B precedence. A zero exit from a maintenance
-step does not prove a campaign passed its task verifier.
+`cost.usage_source` before comparing cost deltas. Track A reads usage directly
+from the API response, subject to the missing-usage limitation above; starting
+a proxy does not make its cost collector use the Track B precedence. A zero exit
+from a maintenance step does not prove a campaign passed its task verifier.
 
 ## Findings for a separate code decision
 

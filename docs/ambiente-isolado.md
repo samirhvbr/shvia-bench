@@ -1,5 +1,10 @@
 # SHVIA-BENCH — Ambiente Isolado para Benchmark de Modelos
 
+> Original design specification. For implemented commands and limits, use the
+> [current operator guide](current-operations.md). In particular, the current
+> runner isolates configuration; it does not enforce the workspace-only or
+> network-denial requirements described below.
+
 **Projeto:** SHVIA-BENCH
 **Versão do documento:** 0.2 (revisão com catálogo completo de métricas)
 **Data:** 18/07/2026

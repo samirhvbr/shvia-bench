@@ -36,8 +36,10 @@ printf '%s' 'sk-ant-...' > .secrets/anthropic     # → ANTHROPIC_API_KEY
 printf '%s' 'sk-...'     > .secrets/openai         # → OPENAI_API_KEY
 # xai · deepseek · zai · novita · openrouter · kilo
 ```
-O `run.sh` injeta na allowlist do `env -i` e **redige** todo `*_API_KEY` no
-`env.snapshot` (o valor real nunca vai pra artefato).
+The runner injects each key into the `env -i` allowlist and redacts `*_API_KEY`
+in `env.snapshot`. This does not guarantee that transcripts, model output or
+other artifacts contain no secret; review them before publication. The external
+`env KEY=value ...` launcher can also expose values in transient process arguments.
 
 ## 2. Trilha A — modelo puro (API direta)
 

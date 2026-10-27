@@ -11,7 +11,7 @@ import json
 import os
 import sys
 import threading
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "runner"))
@@ -120,8 +120,106 @@ def teto_checks():
     }
 
 
+def usage_handler(kind, usage, start_only=False):
+    """A valid, finished response whose usage may be absent, partial or zero."""
+    if kind == "openai":
+        events = [{"choices": [{"delta": {"content": "OK"}, "finish_reason": "stop"}]}]
+        if usage is not None:
+            events[0]["usage"] = {k: usage[v] for k, v in
+                (("prompt_tokens", "input_tokens"), ("completion_tokens", "output_tokens"))
+                if v in usage}
+    else:
+        events = [{"type": "message_start", "message": {"model": "dummy-model"}},
+                  {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "OK"}},
+                  {"type": "message_delta", "delta": {"stop_reason": "end_turn"}}]
+        if usage is not None:
+            events[0]["message"]["usage"] = {k: v for k, v in usage.items()
+                                               if k != "output_tokens" or start_only}
+            if not start_only and "output_tokens" in usage:
+                events[-1]["usage"] = {"output_tokens": usage["output_tokens"]}
+    payload = "".join("data: " + json.dumps(event) + "\n\n" for event in events).encode()
+
+    class H(BaseHTTPRequestHandler):
+        calls = 0
+
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            type(self).calls += 1
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+    return H
+
+
+def usage_checks():
+    """Unknown counts must not invent free requests or bypass the spend estimate."""
+    import tempfile
+    checks = {}
+    for kind in ("anthropic", "openai"):
+        scenarios = [("absent", None), ("empty", {}),
+                            ("null", {"input_tokens": None, "output_tokens": None}),
+                            ("input only", {"input_tokens": 123}),
+                            ("output only", {"output_tokens": 7}),
+                            ("zero", {"input_tokens": 0, "output_tokens": 0})]
+        if kind == "anthropic":
+            scenarios.append(("initial output only", {"input_tokens": 123, "output_tokens": 1}))
+        for name, usage in scenarios:
+            handler = usage_handler(kind, usage, start_only=name == "initial output only")
+            with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+                threading.Thread(target=server.serve_forever, daemon=True).start()
+                gateway = {"kind": kind, "path": "/test"}
+                model = {"id": "dummy-model", "price_per_mtok": PRICE}
+                ids = {"run_id": "usage-test", "case_id": name, "task_id": "T-000-noop",
+                       "model_alias": "M-test", "repetition": 1}
+                rec = track_a.run_case(model, gateway, "OK", "synthetic-key",
+                                      f"http://127.0.0.1:{server.server_address[1]}", ids)
+                server.shutdown()
+            prefix = f"{kind} {name} usage"
+            checks[prefix + ": answer remains completed"] = (
+                rec["status"] == "completed" and rec["reply_preview"] == "OK")
+            measured = any(v is not None for v in (usage or {}).values())
+            checks[prefix + ": source reflects measured usage"] = (
+                rec["cost"]["usage_source"] == ("a_api_response" if measured else None))
+            if name == "zero":
+                checks[prefix + ": explicit zero is preserved"] = (
+                    rec["cost"]["cost_usd_computed"] == 0.0 and rec["tokens"]["total_tokens"] == 0)
+            else:
+                checks[prefix + ": incomplete total and cost are unknown"] = (
+                    rec["cost"]["cost_usd_computed"] is None and rec["tokens"]["total_tokens"] is None)
+            if (usage or {}).get("output_tokens") is None or name == "initial output only":
+                checks[prefix + ": unknown output has unknown throughput"] = (
+                    rec["tokens"]["output_tokens"] is None
+                    and rec["throughput"]["tps_generation"] is None and rec["throughput"]["tps_call"] is None)
+
+    handler = usage_handler("openai", None)
+    with tempfile.TemporaryDirectory(prefix="track-a-missing-usage-") as tmp, \
+            ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        gateway = {"kind": "openai", "path": "/test", "key_env": "TRACK_A_TEST_KEY",
+                   "base_url": f"http://127.0.0.1:{server.server_address[1]}"}
+        model = {"id": "dummy-model", "gateway": "local", "max_tokens": 16, "price_per_mtok": PRICE}
+        out = os.path.join(tmp, "out.jsonl")
+        rc, err = run_main(["--model", "M-test", "--task", "T-000-noop", "--reps", "5",
+                            "--out", out, "--max-spend-usd", "0.10"],
+                           {"M-test": model}, {"local": gateway}, tmp)
+        server.shutdown()
+        records = [json.loads(line) for line in open(out)]
+        checks["missing usage: budget counts the estimate and stops before rep3"] = (
+            rc == 1 and handler.calls == 2 and len(records) == 2 and "rep3" in err)
+        checks["missing usage: budget estimate is not published as measured cost"] = all(
+            row["cost"]["cost_usd_computed"] is None for row in records)
+    return checks
+
+
 def main():
     checks = {}
+    checks.update(usage_checks())
     checks.update(teto_checks())
     checks.update(run_path(
         "anthropic",

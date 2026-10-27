@@ -121,6 +121,46 @@ def parse_openai_sse(text):
     return usage, model, stop, "".join(parts)
 
 
+def stream_problem(kind, text):
+    """An HTTP 200 is not a completed answer by itself (external review, 26/10/2026).
+
+    The status line only says the stream opened. A provider that fails afterwards
+    sends an error EVENT in the body (Anthropic `{"type":"error",...}`, OpenAI-style
+    `{"error":{...}}`), and until then this runner parsed nothing out of it and
+    recorded `completed` with an empty reply: a failed call counted as a success,
+    its time-to-error entered the latency stats, and `main()` exited 0. A stream cut
+    before its terminal marker (`message_stop`, or a `finish_reason`) is no answer
+    either. Returns {subtype, error} for an `infra_error`, or None.
+    """
+    terminou = False
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        payload = line[5:].strip()
+        if not payload or payload == "[DONE]":
+            continue
+        try:
+            o = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(o, dict):
+            continue
+        err = o.get("error")
+        if o.get("type") == "error" or err:
+            msg = err.get("message") if isinstance(err, dict) else err
+            return {"subtype": "stream_error", "error": str(msg or payload)[:500]}
+        if kind == "anthropic":
+            terminou = terminou or o.get("type") == "message_stop"
+        else:
+            terminou = terminou or any(isinstance(ch, dict) and ch.get("finish_reason")
+                                       for ch in (o.get("choices") or []))
+    if not terminou:
+        marca = "message_stop" if kind == "anthropic" else "a finish_reason"
+        return {"subtype": "stream_incomplete", "error": f"the stream ended without {marca}"}
+    return None
+
+
 def compute_cost(usage, price):
     # métrica ausente = null, NUNCA 0 (§10.3): se há tokens num bucket mas o preço
     # dele é None/ausente, o custo é DESCONHECIDO → retorna None (não zero silencioso).
@@ -188,8 +228,13 @@ def run_case(model_cfg, gateway, prompt, api_key, base_url, ids):
                         "finished_utc": round(time.time(), 3),
                         "error": bytes(buf[:500]).decode("utf-8", "replace")})
             return rec
+        text = buf.decode("utf-8", "replace")
+        problema = stream_problem(kind, text)
+        if problema:
+            rec.update({"status": "infra_error", **problema, "finished_utc": round(time.time(), 3)})
+            return rec
         parse = parse_anthropic_sse if kind == "anthropic" else parse_openai_sse
-        usage, model, stop, reply = parse(buf.decode("utf-8", "replace"))
+        usage, model, stop, reply = parse(text)
         gen_ms = round(e2e_ms - ttft_ms, 1) if ttft_ms is not None else None
         out_tok = usage.get("output_tokens", 0) or 0
         total = sum(usage.get(k, 0) or 0 for k in

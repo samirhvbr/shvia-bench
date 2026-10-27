@@ -6,6 +6,8 @@ superfície pública) + o **enunciado canônico** (PROTOCOL.md §2, neutro). NUN
 `private/` (matriz-gabarito + probes). A avaliação mecânica roda o
 `harness/leb_harness.py` (docker mysql8+php8.4) contra a entrega → exit 2 se
 regrediu, 0 se ok, + relatório JSON (probes corrigidas, dificuldade).
+Any other exit (3 = inconclusive in LEB 1.4.0, 1 = a crash) is NOT a verdict: the
+record stays pending and can be verified again (see `verify`).
 
 Stdlib only. Lê o enunciado do PROTOCOL.md pra não parafrasear (§2 é fixo).
 """
@@ -103,7 +105,17 @@ def verify(leb_root, instance, submission_dir, out_json=None, dry_run=False, tim
             report = json.loads(p.stdout)
         except json.JSONDecodeError:
             pass
-    res = {"passed": rc == 0, "exit_code": rc}  # exit 0 = sem regressão (§harness)
+    # Only 0 (no regression) and 2 (regression) are verdicts. LEB 1.4.0 made a reading
+    # that cannot be made exit 3, "never an approval and never a regression"
+    # (AI-BENCHMARK SPEC.md, harness/README.md); a crash exits 1. Until 27/10/2026
+    # anything but 0 became `passed: False`, then `failed_verification`, and the
+    # pending marker was dropped, so the verifier's failure was charged to the model
+    # and could not be retried (external review, 26/10/2026). `passed: None` keeps
+    # the record pending in `patch_results`.
+    passed = True if rc == 0 else False if rc == 2 else None
+    res = {"passed": passed, "exit_code": rc}
+    if passed is None:
+        res["inconclusive"] = True
     if isinstance(report, dict):
         char = report.get("characterization") or {}
         probes = report.get("probes") or []
@@ -153,6 +165,7 @@ def patch_results(leb_root, results_path):
             merged["pending"] = "leb"    # nada foi medido ⇒ segue pendente, reverificável
         else:
             merged.pop("pending", None)  # veredito obtido
+            merged.pop("inconclusive", None)  # an earlier inconclusive reading no longer describes it
             done += 1                    # só conta o que FOI de fato verificado
         rec["verification"] = res = merged
         # Mesma combinadora do track_b ⇒ PROMOVE e REBAIXA pelo mesmo mecanismo.

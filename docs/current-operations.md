@@ -144,6 +144,20 @@ from the API response and records `a_api_response`; starting a proxy does not
 make its cost collector use the Track B precedence. A zero exit from a maintenance
 step does not prove a campaign passed its task verifier.
 
+**What counts as an answer and as a verdict (0.9.4).**
+- **Track A:** an HTTP 200 is not a completed answer by itself. A stream that carries
+  an error event (Anthropic `{"type":"error"}`, OpenAI-style `{"error":{…}}`) is
+  recorded as `infra_error` with subtype `stream_error`, and the provider's message is
+  kept. So is a stream that ends without its terminal marker (`message_stop`, or a
+  `finish_reason`), with subtype `stream_incomplete`. Before 0.9.4 both were
+  `completed`, with an empty reply and their time-to-error in the latency stats.
+- **LEB:** only verifier exit 0 (no regression) and exit 2 (regression) are verdicts.
+  Exit 3 means inconclusive in LEB 1.4.0 ("never an approval and never a regression"),
+  and exit 1 is a crash. Both leave the record `pending_verification`, with
+  `inconclusive: true` and the exit code, so `patch-results` can verify it again.
+  Before 0.9.4 they became `failed_verification`, and the pending marker was dropped
+  (external review, 26/10/2026).
+
 ## Findings for a separate code decision
 
 This documentation change does not modify runners or the proxy. Follow-ups:

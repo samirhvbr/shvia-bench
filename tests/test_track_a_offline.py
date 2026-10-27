@@ -120,9 +120,61 @@ def teto_checks():
     }
 
 
+def sse_handler(events):
+    """A one-shot SSE endpoint that answers HTTP 200 with exactly these `data:` payloads."""
+    from http.server import BaseHTTPRequestHandler
+    body = "".join(f"data: {json.dumps(e) if not isinstance(e, str) else e}\n\n" for e in events).encode()
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+    return Handler
+
+
+def stream_error_checks():
+    """0.9.4 (external review, 26/10/2026): an HTTP 200 whose stream carries only an error
+    event was recorded as `completed` with an empty reply."""
+    anth = {"kind": "anthropic", "path": "/v1/messages", "version": "2023-06-01"}
+    oai = {"kind": "openai", "path": "/v1/chat/completions", "sampling_ok": True}
+    erro = {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}
+    inicio = {"type": "message_start", "message": {"model": "dummy-model-1", "usage": {"input_tokens": 5}}}
+    cases = {
+        "anthropic, only an error event": (anth, [erro]),
+        "anthropic, message_start then an error": (anth, [inicio, erro]),
+        "openai, an error object": (oai, [{"error": {"message": "upstream failed", "code": 502}}, "[DONE]"]),
+        "anthropic, cut before message_stop": (anth, [inicio, {"type": "content_block_delta", "index": 0,
+                                                            "delta": {"type": "text_delta", "text": "O"}}]),
+        "openai, no finish_reason": (oai, [{"model": "m", "choices": [{"delta": {"content": "O"}}]}, "[DONE]"]),
+    }
+    out = {}
+    for name, (gw, events) in cases.items():
+        port = serve(sse_handler(events))
+        model_cfg = {"id": "m", "max_tokens": 16, "sampling_ok": gw["kind"] == "openai",
+                     "params": {}, "price_per_mtok": PRICE}
+        ids = {"run_id": "t", "task_id": "T-000-noop", "model_alias": "x", "repetition": 1, "case_id": "c"}
+        rec = track_a.run_case(model_cfg, gw, "Responda OK.\n", "k", f"http://127.0.0.1:{port}", ids)
+        esperado = "stream_incomplete" if ("cut" in name or "finish_reason" in name) else "stream_error"
+        out[f"stream: {name} → infra_error/{esperado}"] = (
+            rec["status"] == "infra_error" and rec.get("subtype") == esperado)
+    out["stream: the error message is kept"] = "Overloaded" in str(
+        track_a.stream_problem("anthropic", "data: " + json.dumps(erro)))
+    return out
+
+
 def main():
     checks = {}
     checks.update(teto_checks())
+    checks.update(stream_error_checks())
     checks.update(run_path(
         "anthropic",
         {"kind": "anthropic", "path": "/v1/messages", "version": "2023-06-01"},

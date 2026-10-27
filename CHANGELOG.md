@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.9.4 - Record an error stream as infra_error and keep an inconclusive LEB verify pending
+
+An external review (26/10/2026) found two places where the runner's classification turned a
+failure that is not the model's into a model result. Both were reproduced in memory first.
+
+- **Track A: an HTTP 200 with only an error event was `completed`.** `run_case` checked only the
+  status line, and the SSE parsers skipped error payloads, so an Anthropic `{"type":"error"}` or an
+  OpenAI-style `{"error":{…}}` gave `status: completed` with an empty reply. Its time-to-error entered
+  the latency stats, and `main()` exited 0. New `stream_problem()` classifies those streams as
+  `infra_error` / `stream_error`, keeping the provider's message. A stream cut before its terminal
+  marker (`message_stop`, or a `finish_reason`) becomes `infra_error` / `stream_incomplete`. The
+  spending ceiling already counts the worst case for a rep with no cost.
+- **LEB: verifier exit 3 (inconclusive) became `failed_verification`.** `verify` read
+  `passed = (rc == 0)`, so exit 3 — which LEB 1.4.0 defines as "never an approval and never a
+  regression" (AI-BENCHMARK `SPEC.md`, `harness/README.md`) — and a crash (exit 1) were both counted
+  as regressions, and `patch_results` dropped the pending marker. Now only 0 and 2 are verdicts.
+  Anything else gives `passed: None`, `inconclusive: true` and the exit code, and the record stays
+  pending and reverifiable. The LEB-100-A path used by the campaign today exits only 0, 2 or 1, so
+  exit 3 was not yet reachable through it, but a crash already was.
+
+The version skips 0.9.3, which open pull request #10 claims.
+
+Tests: `tests/test_track_a_offline.py` gains five streams (error-only, message_start then error, an
+OpenAI error object, a cut Anthropic stream, an OpenAI stream with no `finish_reason`). The new
+`tests/test_leb_verdict_offline.py` runs the real `verify` and `patch_results` against a fake harness
+that exits 0, 1, 2 or 3. Both are registered in `tests/run_all.sh`. Docs:
+`docs/current-operations.md`.
+
 ## 0.9.2 - Document current benchmark execution and acceptance boundaries
 
 Add an operator guide for implemented tracks, isolation, serial execution,

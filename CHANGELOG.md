@@ -20,13 +20,28 @@ failure that is not the model's into a model result. Both were reproduced in mem
   pending and reverifiable. The LEB-100-A path used by the campaign today exits only 0, 2 or 1, so
   exit 3 was not yet reachable through it, but a crash already was.
 
-The version skips 0.9.3, which open pull request #10 claims.
-
 Tests: `tests/test_track_a_offline.py` gains five streams (error-only, message_start then error, an
 OpenAI error object, a cut Anthropic stream, an OpenAI stream with no `finish_reason`). The new
 `tests/test_leb_verdict_offline.py` runs the real `verify` and `patch_results` against a fake harness
-that exits 0, 1, 2 or 3. Both are registered in `tests/run_all.sh`. Docs:
+that exits 0, 1, 2 or 3. Both are registered in `tests/run_all.sh`. The 0.9.3 usage stub now ends its
+Anthropic stream with `message_stop`, as a real stream does; without it the stream reads as cut. Docs:
 `docs/current-operations.md`.
+
+## 0.9.3 - Keep missing Track A usage unknown when accounting for requests
+
+A finished API response without usage was recorded with zero cost and throughput,
+even though its token counts were unknown. The repetition budget then counted the
+request as free instead of using its existing estimate, allowing more calls than
+the configured ceiling intended.
+
+Require input and output counts for total tokens and computed cost, preserve
+unknown throughput when output is absent, and only claim an API usage source when
+a token counter was measured. Explicit zeros stay zero. Loopback HTTP regressions
+cover both API formats with absent, empty, null, partial and zero usage; the real
+repetition loop now stops at the budget estimate when the server omits usage.
+An Anthropic stream's initial output count is not mistaken for its final count
+when the closing usage update is missing.
+No historical results, price tables or scoring rules are changed.
 
 ## 0.9.2 - Document current benchmark execution and acceptance boundaries
 

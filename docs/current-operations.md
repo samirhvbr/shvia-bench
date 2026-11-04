@@ -89,6 +89,16 @@ It estimates the worst next request before starting it. This is not an external
 billing cap: prices and prompt estimates must be valid. Missing prices are refused
 unless the operator explicitly disables the ceiling with `--max-spend-usd 0`.
 
+A successful response can omit usage. Missing input or output counts leave the
+total token count and computed cost `null`; missing output also leaves throughput
+`null`. Explicit zero counts remain zero. With no measured token counters,
+`cost.usage_source` is `null`. The spend ceiling accounts for a request with unknown cost
+using its existing estimate, without publishing that estimate as measured cost.
+This affects newly collected records only; historical paid results are not rewritten.
+For Anthropic streams, the initial output count in `message_start` is provisional;
+the final output count comes from [`message_delta` usage](https://platform.claude.com/docs/en/build-with-claude/streaming).
+If that count is absent, output-dependent metrics stay unknown.
+
 `run.sh` forwards `ANTHROPIC_BASE_URL` to its proxy, but does not forward arbitrary
 vendor base-URL variables through `env -i`. Other vendors can run directly with
 their configured keys; do not claim C3 coverage just because the proxy is running.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.5 - Correct the runbook's canary, noop and Linux-support instructions
+
+`docs/rodar.md` said the suite runs on Linux since 0.8.4; the `mktemp` fix landed in
+0.8.7 (`16d573b`). Its readiness table described `CANARY_RESULT` as inline JSON and
+`canary.sh --live` without `--out`; the audit reads a file, and only `--out` writes
+one. The table now says the proxy must be running, that the version check is a
+substring match, and that no script computes the noop overhead. The manual Track B
+gotchas gain the explicit `--leb-root`.
+
 ## 0.9.5 - Re-verify the README and operator guide against the current runners
 
 Checked against `1317151` (`0.9.3`). The README's layout now names the runners

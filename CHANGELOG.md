@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5 - Add lag notices to the Portuguese README and the v0.2 specification
+
+`README_br.md` still described `work/` as the live workspace and carried an old
+phase checklist; a note at its top says it lags behind `README.md` and names the
+differences. `docs/ambiente-isolado.md` gains a note that its file names are the
+plan rather than the repository, and that of §11 only block A runs as a blocking
+audit. Neither page's body was rewritten.
+
 ## 0.9.5 - Correct the runbook's canary, noop and Linux-support instructions
 
 `docs/rodar.md` said the suite runs on Linux since 0.8.4; the `mktemp` fix landed in

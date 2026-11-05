@@ -2,7 +2,8 @@
 
 > **Leia também:** [README.md](README.md) / [README_br.md](README_br.md) ·
 > [docs/ambiente-isolado.md](docs/ambiente-isolado.md) (a spec, v0.2) ·
-> [.continue/estado-atual.md](.continue/estado-atual.md) (log de progresso).
+> [docs/current-operations.md](docs/current-operations.md) (current operator guide) ·
+> [.continue/estado-atual.md](.continue/estado-atual.md) (progress log, last updated August 16, 2026).
 >
 > `CLAUDE.md` e `AGENTS.md` são **espelhados** abaixo do H1 — editar os dois.
 
@@ -95,6 +96,9 @@ estável/campanha publicada. Proibido `feat:`/`fix:`/`chore:` e mensagens vagas.
   Rode isto, não os arquivos soltos: foi assim que um teste ficou vermelho sem
   ninguém notar.
 - `python3 proxy/logging_proxy.py` — sobe o proxy passivo.
+- `runner/campaign_leb.sh <model> <instance> [reps] [harness] --dry-run` — plans a
+  paid LEB campaign and stops before spending; without `--dry-run` it spends real
+  money ([docs/current-operations.md](docs/current-operations.md)).
 
 ---
 

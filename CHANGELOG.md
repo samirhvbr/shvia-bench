@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5 - Point the agent instructions at the current operator guide
+
+`CLAUDE.md` and `AGENTS.md` sent agents to the spec and to a progress log last
+updated on August 16, 2026, but not to `docs/current-operations.md`. They now link
+it, date the log, and list the campaign driver's `--dry-run` next to the other
+commands, with a warning that without it the driver spends money. The two files
+stay identical below the H1.
+
 ## 0.9.5 - Add lag notices to the Portuguese README and the v0.2 specification
 
 `README_br.md` still described `work/` as the live workspace and carried an old

@@ -68,6 +68,26 @@ options and never source a credential file. The launcher currently executes
 not an argv-secrecy guarantee. The snapshot is built with redacted placeholders. Review all artifacts before publication: configuration
 redaction does not prove that a model response or transcript contains no secret.
 
+## Which configuration reaches the model process
+
+`config/run.defaults.env` is sourced on the host before `env -i`. A value set there
+does not automatically become part of the sanitized child environment.
+
+| Control | Effective use |
+|---|---|
+| `WORK_ROOT` | Workspace parent on the host; defaults to `${TMPDIR:-/tmp}/shvia-bench-work` |
+| `BENCH_EXTRA_PATH` | Prepended to `/usr/local/bin:/usr/bin:/bin`; include the harness and its runtime directories |
+| `EFFORT_PINNED`, `THINKING_PINNED` | Forwarded as `CLAUDE_CODE_EFFORT_LEVEL` and `MAX_THINKING_TOKENS` |
+| `PROXY_HOST`, `PROXY_PORT` | Form the forwarded `ANTHROPIC_BASE_URL`; they do not start a proxy |
+| `PROXY_UPSTREAM`, `PROXY_ALLOWED_HOSTS` | Read by the separately started proxy from its own environment or `--upstream` / `--allow`; editing runner defaults alone does not configure that process |
+| `MAX_TURNS`, `BUDGET_PER_CASE_USD`, `TIMEOUT_S` | Standalone Track B reads these from its environment, but `run.sh` does not forward them; pass `--max-turns`, `--budget` and `--timeout` to that child explicitly |
+| `LEB_ROOT` | Campaign setup uses it and passes an explicit `--leb-root` to Track B |
+
+Track B defaults to `--permission-mode acceptEdits`. Its empty profile permission
+lists do not restrict it to its workspace or block network access. See the
+[profile contract](../config/profile.template/README.md) for configuration lifetime
+and the distinction between current behavior and the original isolation design.
+
 ## Track A and the proxy
 
 Use a different file for proxy records and result records. Mixing them creates
@@ -169,8 +189,9 @@ For Track B, keep `harness_outcome` separate from `verification`. A pending verd
 is not a pass; an API error is not a model failure. `runner/status.py` arbitrates
 status. Its collector prefers C3 cost only with complete coverage, then deduplicated
 C2, then C1; no usable source means `null`, not zero. Read coverage and
-`cost.usage_source` before comparing cost deltas. Track A computes usage directly
-from the API response and records `a_api_response`; starting a proxy does not
+`cost.usage_source` before comparing cost deltas. Track A reads usage directly
+from the API response: its source is `a_api_response` when counters were reported,
+otherwise `null`, as described above. Starting a proxy does not
 make its cost collector use the Track B precedence. A zero exit from a maintenance
 step does not prove a campaign passed its task verifier.
 

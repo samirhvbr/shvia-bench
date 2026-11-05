@@ -4,6 +4,13 @@
 
 🇺🇸 [English version](README.md)
 
+> **Note (November 5, 2026).** This Portuguese page lags behind [README.md](README.md),
+> which, with the [current operator guide](docs/current-operations.md), describes the
+> current state. Known differences: `work/` is a retained placeholder, and live
+> workspaces default to a directory outside the repository (`WORK_ROOT`, under
+> `$TMPDIR` or `/tmp`); the phase checklist below is historical and its test counts
+> are not current; for secret handling, follow the English README.
+
 **Um harness reprodutível e com controle de contaminação para avaliar LLMs em
 tarefas de engenharia de software.** Spec: [`docs/ambiente-isolado.md`](docs/ambiente-isolado.md) (v0.2);
 runbook do operador: [`docs/rodar.md`](docs/rodar.md).

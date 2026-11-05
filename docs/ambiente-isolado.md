@@ -1,5 +1,15 @@
 # SHVIA-BENCH — Ambiente Isolado para Benchmark de Modelos
 
+> **Design specification, v0.2 (July 18, 2026); notes checked November 5, 2026.**
+> The code blocks are sketches, and names such as `models.yaml`, `run.defaults.yaml`,
+> `task.yaml` and `T-001-refactor-parser` describe the plan, not the repository,
+> which uses `config/models.json`, `config/run.defaults.env` and `tasks/<id>/task.json`
+> and ships only `T-000-noop`. §11 says the whole checklist is automated in
+> `runner/audit.sh`; only block A is, as the blocking pre-run audit. Some block B
+> quantities (`cost_delta_pct`, `compaction_events`, `service_tier`, off-allowlist
+> hosts) are recorded in Track B results without blocking a run. Implemented
+> behavior: [current operator guide](current-operations.md).
+
 **Projeto:** SHVIA-BENCH
 **Versão do documento:** 0.2 (revisão com catálogo completo de métricas)
 **Data:** 18/07/2026

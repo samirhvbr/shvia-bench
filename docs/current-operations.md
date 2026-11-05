@@ -1,6 +1,7 @@
 # Current operator guide
 
-Reviewed October 15, 2026 against `872dfab` (`0.9.1`). This guide describes the
+Reviewed November 5, 2026 against `1317151` (`0.9.3`); first written October 15
+against `872dfab` (`0.9.1`). This guide describes the
 implemented command paths; the [original specification](ambiente-isolado.md)
 contains design choices and the [detailed runbook](rodar.md) has further examples.
 No paid run, live canary or provider acceptance was performed for this review.
@@ -32,7 +33,9 @@ for LEB verification. `preflight.sh` reports available prerequisites.
 LEB_ROOT=/absolute/path/to/ai-benchmark BENCH_SKIP_MAX=0 bash tests/run_all.sh
 ```
 
-The suite uses local dummy HTTP servers and fake harnesses. `LEB_ROOT` must name a
+The suite uses local dummy HTTP servers and fake harnesses, and runs each file
+under a watchdog (`timeout`, or `perl` where `timeout` is missing; `WATCHDOG_S`,
+default 300 seconds). `LEB_ROOT` must name a
 checkout of the task source; without it the LEB suite may skip. Locally the default
 `BENCH_SKIP_MAX=-1` permits skips with a warning, while CI clones the public task
 source and enforces `BENCH_SKIP_MAX=0`. Inspect skips, not only exit status.
@@ -120,11 +123,28 @@ exit-code gate. Supply `CANARY_RESULT`, `EXPECT_CLAUDE_VERSION` and
 refuses missing readiness inputs with exit `4`; each rep then runs the audit in
 strict mode, including proxy availability.
 
+Producing those inputs:
+
+- **`CANARY_RESULT`** is the path of a file, not inline JSON. Write it with
+  `runner/canary.sh --live --out <file>`. The live canary runs `claude` through
+  `run.sh`, which always points `ANTHROPIC_BASE_URL` at the local proxy, so start
+  the proxy first. Put the `claude`/`node` directory in `BENCH_EXTRA_PATH` unless
+  it is already under `/usr/local/bin`, `/usr/bin` or `/bin`.
+  The verdict only checks whether the canary tool name appears in the output; a
+  run that never reached the model also reads `"leaked": false`. Confirm that
+  the output actually lists tools before trusting the file.
+- **`EXPECT_CLAUDE_VERSION`** is compared as a substring of `claude --version`.
+- **`NOOP_OVERHEAD`** is an integer the operator supplies. No runner computes
+  `context_overhead_tokens`; `tasks/T-000-noop/task.json` defines it as the
+  prompt size of the noop run's first call, as captured by the proxy.
+
 The driver does not accept a `--budget` flag. Standalone `track_b.py` does; the
 campaign currently uses its defaults of US$2, 900 seconds and 30 turns per rep
 after environment sanitization.
 Likewise, host variables that are not forwarded are not effective Track B limits.
 Check actual argv and recorded options instead of assuming a host variable won.
+When calling `track_b.py` by hand for an LEB instance, pass `--leb-root`
+explicitly: its default expands `~`, which inside `run.sh` is the sandbox HOME.
 
 A new campaign refuses an existing nonempty results path. The operator explicitly
 selects `--from-rep N` for append, or `--out <new-path>` for another campaign.

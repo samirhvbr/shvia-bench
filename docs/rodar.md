@@ -13,7 +13,7 @@ Invariantes que **não se relitiga**: [../CLAUDE.md](../CLAUDE.md).
 bash tests/run_all.sh   # suíte offline inteira (sem rede, sem chave, sem docker)
 ```
 
-> **Roda no Linux desde a 0.8.4** (achado G-40 da revisão de 01/09/2026). O script foi
+> **Roda no Linux desde a 0.8.7** (achado G-40 da revisão de 01/09/2026). O script foi
 > escrito e validado só no macOS, e o `mktemp -t sb-test` sem `XXXXXX` — que o BSD aceita
 > e o GNU recusa — deixava `$out` vazio: as **8 suítes eram reportadas como FALHOU sem
 > nunca terem rodado**, e o piso de cobertura acusava `? < 60`. Chamadas à mão, todas
@@ -109,7 +109,9 @@ python3 runner/leb.py reclassify --results runs/<arquivo>.jsonl --dry-run
 - caminho **absoluto** pro `track_b.py` (o `run.sh` faz `cd` pro workspace);
 - `BENCH_EXTRA_PATH` com o dir do `claude`/`node` (harness) e do `docker` (verify);
 - o **verify do LEB roda FORA do `env -i`** (o `docker compose` precisa do HOME
-  real) — por isso é um passo pós-run (`leb.py patch-results`), não dentro do `track_b`.
+  real) — por isso é um passo pós-run (`leb.py patch-results`), não dentro do `track_b`;
+- pass `--leb-root` explicitly with `--leb-instance`: the default expands `~`, which
+  inside `env -i` is the sandbox HOME, not yours.
 
 ## 4. Ler os resultados
 
@@ -168,14 +170,14 @@ unless the three inputs only the model can produce are ready.** It lists what is
 
 | Check | Input the operator brings | How to get it |
 |---|---|---|
-| A5 canary | `CANARY_RESULT=<json>` saying `"leaked": false` | `runner/canary.sh --live` |
-| A9 harness version | `EXPECT_CLAUDE_VERSION=<version>`, matching `claude --version` | the campaign manifest |
-| A14 noop overhead | `NOOP_OVERHEAD=<context_overhead_tokens>` | the T-000-noop run |
+| A5 canary | `CANARY_RESULT=<path>` of a JSON file saying `"leaked": false` | `runner/canary.sh --live --out <path>`, with the proxy already running |
+| A9 harness version | `EXPECT_CLAUDE_VERSION=<version>`, found as a substring of `claude --version` | the campaign manifest |
+| A14 noop overhead | `NOOP_OVERHEAD=<context_overhead_tokens>` | the T-000-noop run; no script computes it (see the [guide](current-operations.md#track-b-readiness-and-resumption)) |
 
 A12 (proxy up) cannot be checked before the driver starts the proxy. Every rep audits in strict
 mode (`AUDIT_STRICT=1`), so a deferred check fails the rep **before** the model is called, and
 a failed rep costs nothing. Exploratory single runs still go straight through `runner/run.sh`.
 ```bash
-./runner/canary.sh --live        # A5 ao vivo: prova que MCP não previsto não vaza
+./runner/canary.sh --live --out "$PWD/runs/canary.json"   # live A5; start the proxy first
 ./runner/run.sh --task noop --audit-only   # só audita, sem executar
 ```

@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.9.5 - Point the agent instructions at the current operator guide
+
+`CLAUDE.md` and `AGENTS.md` sent agents to the spec and to a progress log last
+updated on August 16, 2026, but not to `docs/current-operations.md`. They now link
+it, date the log, and list the campaign driver's `--dry-run` next to the other
+commands, with a warning that without it the driver spends money. The two files
+stay identical below the H1.
+
+## 0.9.5 - Add lag notices to the Portuguese README and the v0.2 specification
+
+`README_br.md` still described `work/` as the live workspace and carried an old
+phase checklist; a note at its top says it lags behind `README.md` and names the
+differences. `docs/ambiente-isolado.md` gains a note that its file names are the
+plan rather than the repository, and that of §11 only block A runs as a blocking
+audit. Neither page's body was rewritten.
+
+## 0.9.5 - Correct the runbook's canary, noop and Linux-support instructions
+
+`docs/rodar.md` said the suite runs on Linux since 0.8.4; the `mktemp` fix landed in
+0.8.7 (`16d573b`). Its readiness table described `CANARY_RESULT` as inline JSON and
+`canary.sh --live` without `--out`; the audit reads a file, and only `--out` writes
+one. The table now says the proxy must be running, that the version check is a
+substring match, and that no script computes the noop overhead. The manual Track B
+gotchas gain the explicit `--leb-root`.
+
+## 0.9.5 - Re-verify the README and operator guide against the current runners
+
+Checked against `1317151` (`0.9.3`). The README's layout now names the runners
+that were missing (`track_a.py`, `track_b.py`, `collect.py`, `leb.py`), the
+configuration files, `results/`, the results schema, the operator guide,
+`tools/` and `.claude/`. Its requirements add what Track B and the suite need
+(`claude`, `nc`, `timeout` or `perl`).
+
+The operator guide says how to produce the three readiness inputs: `CANARY_RESULT`
+is a file written by `canary.sh --live --out`, which needs the proxy running and
+`claude` on the sanitized PATH, and whose verdict should be read with its output.
+`EXPECT_CLAUDE_VERSION` is a substring match. No runner computes `NOOP_OVERHEAD`.
+It also notes the suite's watchdog and that a hand-run `track_b.py` needs an
+explicit `--leb-root`. No runner, schema, configuration or result was changed.
+
 ## 0.9.4 - Record an error stream as infra_error and keep an inconclusive LEB verify pending
 
 An external review (26/10/2026) found two places where the runner's classification turned a

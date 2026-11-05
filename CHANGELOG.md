@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.5 - Document the effective benchmark profile and child configuration
+
+The profile README still described a future workspace-restricted permission mode, and it conflated HOME with CLAUDE_CONFIG_DIR. The operator guide omitted which host defaults survive env -i and described the usage source too broadly. Document the actual acceptEdits default, empty permission lists, recreated profile lifetime and lack of filesystem/network confinement. Map the forwarded effort/proxy/PATH settings and the Track B limits that require explicit child flags. Preserve the already delivered accounting fixes.
+
+Documentation-only review; runtime version carriers stay unchanged under the requested scope. This draft requires normal version integration before landing.
+
 ## 0.9.5 - Point the agent instructions at the current operator guide
 
 `CLAUDE.md` and `AGENTS.md` sent agents to the spec and to a progress log last

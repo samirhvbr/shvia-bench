@@ -101,6 +101,7 @@ run python3 tests/test_track_b_offline.py          # Trilha B (harness fake) + c
 run python3 tests/test_status_taxonomy_offline.py  # taxonomia + reparo + guards do driver
 run python3 tests/test_cost_truth_offline.py       # precedência C3→C2-dedup→C1 (§10.1)
 run python3 tests/test_leb_offline.py              # adapter LEB (SKIP sem LEB_ROOT)
+run python3 tests/test_leb_verdict_offline.py      # LEB exit code → verdict, with a fake harness
 run bash    runner/canary.sh --selftest            # A5 offline (fixtures)
 run bash    tests/test_docs_alcancaveis.sh        # D-DOC-10: nenhum doc órfão
 

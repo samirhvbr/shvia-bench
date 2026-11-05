@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.5 - Re-verify the README and operator guide against the current runners
+
+Checked against `1317151` (`0.9.3`). The README's layout now names the runners
+that were missing (`track_a.py`, `track_b.py`, `collect.py`, `leb.py`), the
+configuration files, `results/`, the results schema, the operator guide,
+`tools/` and `.claude/`. Its requirements add what Track B and the suite need
+(`claude`, `nc`, `timeout` or `perl`).
+
+The operator guide says how to produce the three readiness inputs: `CANARY_RESULT`
+is a file written by `canary.sh --live --out`, which needs the proxy running and
+`claude` on the sanitized PATH, and whose verdict should be read with its output.
+`EXPECT_CLAUDE_VERSION` is a substring match. No runner computes `NOOP_OVERHEAD`.
+It also notes the suite's watchdog and that a hand-run `track_b.py` needs an
+explicit `--leb-root`. No runner, schema, configuration or result was changed.
+
 ## 0.9.3 - Keep missing Track A usage unknown when accounting for requests
 
 A finished API response without usage was recorded with zero cost and throughput,

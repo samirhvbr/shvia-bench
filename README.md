@@ -51,18 +51,32 @@ sandbox. Runs share a recreated `profile/` in one checkout: execute them seriall
 ## Layout
 
 ```
+preflight.sh         prerequisite and repository sanity check
 runner/run.sh        env -i + sandbox HOME + CLAUDE_CONFIG_DIR — sanitized entrypoint (§4.2)
 runner/audit.sh      blocking pre-run audit, block A (A1–A14) → audit.json (§11)
 runner/canary.sh     A5 tool canary: proves a planted MCP does NOT leak in (live + --selftest)
+runner/track_a.py    Track A: one streamed API request per rep, spend ceiling, computed cost
+runner/track_b.py    Track B: drives the harness headless; adapter only for Claude Code
+runner/collect.py    merges C1 (harness result) + C2 (transcript) + C3 (proxy) for Track B
+runner/leb.py        LEB adapter: prepare, verify, patch-results, reclassify
 runner/status.py     SINGLE arbiter of `status` — two orthogonal axes (§10.4)
 runner/campaign_leb.sh   one LEB case end-to-end; never overwrites paid results
 proxy/logging_proxy.py   passive logging proxy → proxy.jsonl: TTFT, usage, dest allowlist (§4.4)
 config/profile.template/ versioned sandbox HOME (minimal, explicit settings)
 config/mcp.empty.json    {"mcpServers": {}}
+config/mcp.canary.json, config/canary_mcp_server.py   the planted MCP the A5 canary looks for
+config/models.json, config/gateways.json   model aliases, dated ids, prices and vendor endpoints
+config/harnesses.json, config/harness-matrix.md   Track B harness registry and its validated CLI surface
+config/run.defaults.env  host-side defaults (effort, limits, proxy, LEB_ROOT, WORK_ROOT)
 tasks/T-000-noop/        trivial task — measures the harness's fixed context overhead (§10.6)
 manifest.schema.json     run manifest (§8.1); a run aborts if audit_passed is false
+results.schema.json      one results.jsonl line (§10.4)
+results/                 official, immutable copies of reviewed runs (results/README.md)
+docs/current-operations.md   current operator guide: commands, limits, readiness
 docs/rodar.md            operator runbook (how to actually run a campaign)
 tests/run_all.sh         the whole offline suite in one command
+tools/                   release script and repodocs git hooks
+.claude/                 the repository's agent settings and a vendored loop-work skill
 runs/                    WRITE-ONLY for execution. No process that runs a model reads
                          from here — that is what keeps a previous result from feeding
                          a future run (§4.1). Post-run steps (verify patching,
@@ -80,7 +94,8 @@ failure on a paid run that had actually passed.
 
 ## Current implementation and acceptance
 
-Source review: October 15, 2026, baseline `872dfab` (`0.9.1`). Both tracks,
+Source review: November 5, 2026, baseline `1317151` (`0.9.3`); first written on
+October 15 against `872dfab` (`0.9.1`). Both tracks,
 collection, the LEB campaign driver, result repair and immutable publication
 conventions exist. Only the Claude Code adapter is implemented for Track B;
 Kilo, Cline and Cursor entries are templates, not working integrations.
@@ -98,8 +113,11 @@ context overhead are required operator inputs before a paid LEB campaign.
 
 ## Requirements
 
-`bash`, `python3` (stdlib only — no external deps), `git`, `openssl`; `docker`
-only for LEB instances (not for Phase 1). Run `./preflight.sh` to check.
+`bash`, `python3` 3.7+ (stdlib only — no external deps), `git`, `openssl`; `docker`
+only for LEB instances (not for Phase 1). Track B also needs the harness (`claude`,
+and `node` if it requires it), and the campaign driver uses `nc` to wait for its
+proxy. The offline suite needs `timeout` or `perl` for its watchdog. Run
+`./preflight.sh` to check.
 
 ## Secrets
 

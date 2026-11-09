@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.6 - The A5 canary says inconclusive when the claude session never listed its tools
+
+`canary.sh --live` read the absence of the canary tool as clean. A `claude` that failed
+before starting (no key, no quota, a crash) left an output with no tool list at all, and
+the canary wrote `"leaked": false` and exited 0: a green A5 that measured nothing. The
+verdict now needs the stream-json `init` event with its tool list; without it the result
+is `"leaked": null`, `"verdict": "inconclusive"`, exit 3, and `audit.sh` defers A5 with
+that reason. The offline selftest covers the three verdicts with stream-json fixtures.
+
 ## 0.9.5 - Point the agent instructions at the current operator guide
 
 `CLAUDE.md` and `AGENTS.md` sent agents to the spec and to a progress log last

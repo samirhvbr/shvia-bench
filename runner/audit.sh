@@ -116,6 +116,8 @@ if [ -n "${CANARY_RESULT:-}" ] && [ -f "${CANARY_RESULT:-}" ]; then
     add A5 pass "canário: nenhum MCP não previsto vazou"
   elif grep -q '"leaked"[[:space:]]*:[[:space:]]*true' "$CANARY_RESULT"; then
     add A5 fail "canário: MCP não previsto VAZOU — isolamento inválido"
+  elif grep -q '"verdict"[[:space:]]*:[[:space:]]*"inconclusive"' "$CANARY_RESULT"; then
+    defer A5 "canário inconclusivo: a sessão do claude não listou ferramentas, então a ausência do canário não prova nada" "$AUDIT_REQUIRE_CANARY"
   else
     defer A5 "CANARY_RESULT ilegível" "$AUDIT_REQUIRE_CANARY"
   fi

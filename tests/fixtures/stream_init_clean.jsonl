@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","cwd":"/tmp/work","session_id":"00000000-0000-0000-0000-000000000001","tools":["Task","Bash","Glob","Grep","Read","Edit","Write","WebFetch","TodoWrite"],"mcp_servers":[],"model":"claude-test"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Task\nBash\nRead"}]}}
+{"type":"result","subtype":"success","is_error":false}

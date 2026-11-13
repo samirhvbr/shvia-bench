@@ -150,9 +150,11 @@ Producing those inputs:
   `run.sh`, which always points `ANTHROPIC_BASE_URL` at the local proxy, so start
   the proxy first. Put the `claude`/`node` directory in `BENCH_EXTRA_PATH` unless
   it is already under `/usr/local/bin`, `/usr/bin` or `/bin`.
-  The verdict only checks whether the canary tool name appears in the output; a
-  run that never reached the model also reads `"leaked": false`. Confirm that
-  the output actually lists tools before trusting the file.
+  Since 0.9.6 the verdict needs the session's own tool list (the stream-json
+  `init` event) before it says `"leaked": false`. A `claude` that failed before
+  listing its tools (no key, no quota, a crash) writes `"leaked": null` with
+  `"verdict": "inconclusive"` and exits 3, and `audit.sh` defers A5 instead of
+  passing it. Until 0.9.6 that run read as clean.
 - **`EXPECT_CLAUDE_VERSION`** is compared as a substring of `claude --version`.
 - **`NOOP_OVERHEAD`** is an integer the operator supplies. No runner computes
   `context_overhead_tokens`; `tasks/T-000-noop/task.json` defines it as the

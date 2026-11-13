@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","cwd":"/tmp/work","session_id":"00000000-0000-0000-0000-000000000002","tools":["Bash","Read","mcp__shvia-bench-canary__shvia_bench_canary"],"mcp_servers":[{"name":"shvia-bench-canary","status":"connected"}],"model":"claude-test"}
+{"type":"result","subtype":"success","is_error":false}

@@ -1,7 +1,9 @@
 # Current operator guide
 
 Reviewed November 5, 2026 against `1317151` (`0.9.3`); first written October 15
-against `872dfab` (`0.9.1`). This guide describes the
+against `872dfab` (`0.9.1`). The section on which configuration reaches the model
+process and the Track A usage-source paragraph were re-read on November 13, 2026
+against `6d880bc` (`0.9.6`). This guide describes the
 implemented command paths; the [original specification](ambiente-isolado.md)
 contains design choices and the [detailed runbook](rodar.md) has further examples.
 No paid run, live canary or provider acceptance was performed for this review.

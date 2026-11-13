@@ -67,7 +67,7 @@ config/mcp.empty.json    {"mcpServers": {}}
 config/mcp.canary.json, config/canary_mcp_server.py   the planted MCP the A5 canary looks for
 config/models.json, config/gateways.json   model aliases, dated ids, prices and vendor endpoints
 config/harnesses.json, config/harness-matrix.md   Track B harness registry and its validated CLI surface
-config/run.defaults.env  host-side defaults (effort, limits, proxy, LEB_ROOT, WORK_ROOT)
+config/run.defaults.env  host-side defaults (effort, proxy, LEB_ROOT, WORK_ROOT); the Track B limits it also holds (MAX_TURNS, BUDGET_PER_CASE_USD, TIMEOUT_S) are not forwarded to the child
 tasks/T-000-noop/        trivial task — measures the harness's fixed context overhead (§10.6)
 manifest.schema.json     run manifest (§8.1); a run aborts if audit_passed is false
 results.schema.json      one results.jsonl line (§10.4)

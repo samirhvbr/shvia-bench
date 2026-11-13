@@ -50,7 +50,7 @@ Controladas pelo `env -i` + allowlist do run.sh: `CLAUDE_CONFIG_DIR`,
 | `--strict-mcp-config` + `--mcp-config` | ✅ | isolamento de MCP (validar com A5) |
 | `--settings <file-or-json>` | ✅ | settings explícito |
 | `--model <model>` | ✅ | modelo do caso |
-| `--permission-mode <mode>` | ✅ | modo automático restrito (§6.3) |
+| `--permission-mode <mode>` | ✅ | Track B passes `acceptEdits` by default (`runner/track_b.py`); no file or network confinement (see `docs/current-operations.md`) |
 | `--session-id <uuid>` | ✅ | fixa a sessão → localizar o transcript C2 |
 | `--no-session-persistence` | ✅ | reforça sessão nova (V2) |
 | `--add-dir` | ✅ existe → **deliberadamente NÃO usamos** (§6.3: sem --add-dir) |

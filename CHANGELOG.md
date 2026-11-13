@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.7 - Correct the harness matrix, README map and operator guide header the profile contract made stale
+
+Three places still said what the profile contract below replaced. `config/harness-matrix.md` called Track B's `--permission-mode` a "restricted automatic mode (§6.3)"; the default is `acceptEdits`, with no file or network confinement. The README's file map listed "limits" among the host defaults of `config/run.defaults.env`, but `MAX_TURNS`, `BUDGET_PER_CASE_USD` and `TIMEOUT_S` do not reach the sandboxed child; a standalone Track B reads them from its own environment. The operator guide's header still dated its review at `1317151` (`0.9.3`); it now also says the configuration section and the usage-source paragraph were re-read against `6d880bc` (`0.9.6`) on November 13, 2026, with `run.sh -- env` run with limits, proxy upstream and LEB root set on the launcher: none appeared in the child's environment.
+
+Documentation only: no runner, schema, configuration or result was changed.
+
+## 0.9.7 - Document the effective benchmark profile and child configuration
+
+The profile README still described a future workspace-restricted permission mode, and it conflated HOME with CLAUDE_CONFIG_DIR. The operator guide omitted which host defaults survive env -i and described the usage source too broadly. Document the actual acceptEdits default, empty permission lists, recreated profile lifetime and lack of filesystem/network confinement. Map the forwarded effort/proxy/PATH settings and the Track B limits that require explicit child flags.
+
+Documentation only: no runner, schema, configuration or result was changed.
+
 ## 0.9.6 - The A5 canary says inconclusive when the claude session never listed its tools
 
 `canary.sh --live` read the absence of the canary tool as clean. A `claude` that failed
